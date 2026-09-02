@@ -1,0 +1,16 @@
+word = “2”; 
+number = 1; 
+print word + number; //Edge case 
+
+
+class XYZ { 
+
+  returnSelf() { 
+    return “123”; 
+  } 
+
+} 
+print XYZ().returnSelf(); // Expects “123” 
+ 
+
+fun a() 345; //Error: Expects the {} for function syntax 
