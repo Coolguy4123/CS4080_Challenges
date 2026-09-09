@@ -220,4 +220,3 @@ class Scanner {
     return current >= source.length();
   }
 }
-```
