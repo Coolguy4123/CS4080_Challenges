@@ -50,7 +50,7 @@ class Parser {
       return new Stmt.Print(value);
     }
     
-  // --- Question 1  ---
+  // --- Chapter 8 Question 1  ---
   private Stmt expressionStatement() {
     Expr expr = expression();
 
@@ -62,7 +62,7 @@ class Parser {
     return new Stmt.Expression(expr);
   }
 
-  // --- Question 1 ---
+  // --- Chapter 8 Question 1 ---
   Object parseRepl() {
     replMode = true;
 

@@ -6,7 +6,7 @@ class Interpreter implements Expr.Visitor<Object>,
                              Stmt.Visitor<Void> {
 
   private Environment environment = new Environment();
-  private static Object uninitialized = new Object(); // Added for Question 2
+  private static Object uninitialized = new Object(); // Added for Chatpter 8 Question 2
 
   void interpret(List<Stmt> statements) {
     try {
@@ -18,7 +18,7 @@ class Interpreter implements Expr.Visitor<Object>,
     }
   }
 
-  // --- Question 1 ---
+  // --- Chapter 8 Question 1 ---
   String interpretExpression(Expr expression) {
     try {
       Object value = evaluate(expression);
@@ -42,7 +42,7 @@ class Interpreter implements Expr.Visitor<Object>,
     return null;
   }
 
-  // --- Modified for Question 2 ---
+  // --- Modified for Chaoter 8 Question 2 ---
   @Override
   public Void visitVarStmt(Stmt.Var stmt) {
     Object value = uninitialized;
@@ -54,7 +54,7 @@ class Interpreter implements Expr.Visitor<Object>,
     return null;
   }
 
-  // --- Modified for Question 2 ---
+  // --- Modified for Chapter 8 Question 2 ---
   @Override
   public Object visitVariableExpr(Expr.Variable expr) {
     Object value = environment.get(expr.name);

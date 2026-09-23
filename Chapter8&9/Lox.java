@@ -35,7 +35,7 @@ public class Lox {
     if (hadRuntimeError) System.exit(70);
   }
 
-  // --- Question 1 ---
+  // --- Chapter 8 Question 1 ---
   private static void runPrompt() throws IOException {
     InputStreamReader input = new InputStreamReader(System.in);
     BufferedReader reader = new BufferedReader(input);
