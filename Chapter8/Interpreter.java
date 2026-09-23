@@ -42,7 +42,7 @@ class Interpreter implements Expr.Visitor<Object>,
     return null;
   }
 
-  // --- Modified for Chaoter 8 Question 2 ---
+  // --- Modified for Chapter 8 Question 2 ---
   @Override
   public Void visitVarStmt(Stmt.Var stmt) {
     Object value = uninitialized;
