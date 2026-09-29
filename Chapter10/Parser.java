@@ -63,7 +63,10 @@ class Parser {
       if (match(CLASS)) return classDeclaration();
 //< Classes match-class
 //> Functions match-fun
-      if (match(FUN)) return function("function");
+      if (check(FUN) && checkNext(IDENTIFIER)) {
+        advance();
+        return function("function");
+      }
 //< Functions match-fun
       if (match(VAR)) return varDeclaration();
 
@@ -493,6 +496,10 @@ class Parser {
     }
 //< Statements and State parse-identifier
 
+    if (match(FUN)) {
+      return functionBody("function");
+    }
+
     if (match(LEFT_PAREN)) {
       Expr expr = expression();
       consume(RIGHT_PAREN, "Expect ')' after expression.");
@@ -527,6 +534,11 @@ class Parser {
   private boolean check(TokenType type) {
     if (isAtEnd()) return false;
     return peek().type == type;
+  }
+
+  private boolean checkNext(TokenType type) {
+    if (current + 1 >= tokens.size()) return false;
+    return tokens.get(current + 1).type == type;
   }
 //< check
 //> advance

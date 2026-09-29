@@ -179,7 +179,7 @@ class Interpreter implements Expr.Visitor<Object>,
   @Override
   public Void visitFunctionStmt(Stmt.Function stmt) {
     String fnName = stmt.name.lexeme;
-    environment.define(fnName, new LoxFunction(fnName, stmt.function, environment, false));
+    environment.define(fnName, new LoxFunction(stmt, environment, false));
     return null;
   }
 
@@ -236,7 +236,7 @@ class Interpreter implements Expr.Visitor<Object>,
   // Add support for function (Challenge 2)
   @Override
   public Object visitFunctionExpr(Expr.Function expr) {
-    return new LoxFunction(null, expr, environment, false);
+    return new LoxFunction(expr, environment, false);
    }
 //< Control Flow visit-while
 //> Statements and State visit-assign
