@@ -9,10 +9,12 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   private static class Variable {
     final Token name;
+    final int index;
     VariableState state;
 
-    private Variable(Token name, VariableState state) {
+    private Variable(Token name, int index, VariableState state) {
       this.name = name;
+      this.index = index;
       this.state = state;
     }
   }
@@ -101,7 +103,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     scope.put(name.lexeme,
-        new Variable(name, VariableState.DECLARED));
+        new Variable(name, scope.size(), VariableState.DECLARED));
   }
 
   private void define(Token name) {
@@ -129,7 +131,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
       if (scopes.get(i).containsKey(name.lexeme)) {
         interpreter.resolve(
             expr,
-            scopes.size() - 1 - i);
+            scopes.size() - 1 - i,
+            scopes.get(i).get(name.lexeme).index);
         if (isRead) {
           scopes.get(i).get(name.lexeme).state = VariableState.READ;
         }

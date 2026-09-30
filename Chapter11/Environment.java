@@ -1,7 +1,9 @@
 //> Statements and State environment-class
 package com.craftinginterpreters.lox;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class Environment {
@@ -9,6 +11,7 @@ class Environment {
   final Environment enclosing;
 //< enclosing-field
   private final Map<String, Object> values = new HashMap<>();
+  private final List<Object> valuesByIndex = new ArrayList<>();
 //> environment-constructors
   Environment() {
     enclosing = null;
@@ -55,6 +58,7 @@ class Environment {
 //> environment-define
   void define(String name, Object value) {
     values.put(name, value);
+    valuesByIndex.add(value);
   }
 //< environment-define
 //> Resolving and Binding ancestor
@@ -71,10 +75,18 @@ class Environment {
   Object getAt(int distance, String name) {
     return ancestor(distance).values.get(name);
   }
+
+  Object getAt(int distance, int index) {
+    return ancestor(distance).valuesByIndex.get(index);
+  }
 //< Resolving and Binding get-at
 //> Resolving and Binding assign-at
   void assignAt(int distance, Token name, Object value) {
     ancestor(distance).values.put(name.lexeme, value);
+  }
+
+  void assignAt(int distance, int index, Object value) {
+    ancestor(distance).valuesByIndex.set(index, value);
   }
 //< Resolving and Binding assign-at
 //> omit

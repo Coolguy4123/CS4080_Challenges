@@ -29,7 +29,17 @@ class Interpreter implements Expr.Visitor<Object>,
   private Environment environment = globals;
 //< Functions global-environment
 //> Resolving and Binding locals-field
-  private final Map<Expr, Integer> locals = new HashMap<>();
+  private static class Local {
+    final int distance;
+    final int index;
+
+    Local(int distance, int index) {
+      this.distance = distance;
+      this.index = index;
+    }
+  }
+
+  private final Map<Expr, Local> locals = new HashMap<>();
 //< Resolving and Binding locals-field
 //> Statements and State environment-field
 
@@ -84,8 +94,8 @@ class Interpreter implements Expr.Visitor<Object>,
   }
 //< Statements and State execute
 //> Resolving and Binding resolve
-  void resolve(Expr expr, int depth) {
-    locals.put(expr, depth);
+  void resolve(Expr expr, int distance, int index) {
+    locals.put(expr, new Local(distance, index));
   }
 //< Resolving and Binding resolve
 //> Statements and State execute-block
@@ -250,9 +260,9 @@ class Interpreter implements Expr.Visitor<Object>,
 */
 //> Resolving and Binding resolved-assign
 
-    Integer distance = locals.get(expr);
-    if (distance != null) {
-      environment.assignAt(distance, expr.name, value);
+    Local local = locals.get(expr);
+    if (local != null) {
+      environment.assignAt(local.distance, local.index, value);
     } else {
       globals.assign(expr.name, value);
     }
@@ -418,13 +428,13 @@ class Interpreter implements Expr.Visitor<Object>,
 //> Inheritance interpreter-visit-super
   @Override
   public Object visitSuperExpr(Expr.Super expr) {
-    int distance = locals.get(expr);
+    Local local = locals.get(expr);
     LoxClass superclass = (LoxClass)environment.getAt(
-        distance, "super");
+        local.distance, local.index);
 //> super-find-this
 
     LoxInstance object = (LoxInstance)environment.getAt(
-        distance - 1, "this");
+        local.distance - 1, local.index);
 //< super-find-this
 //> super-find-method
 
@@ -480,9 +490,9 @@ class Interpreter implements Expr.Visitor<Object>,
   }
 //> Resolving and Binding look-up-variable
   private Object lookUpVariable(Token name, Expr expr) {
-    Integer distance = locals.get(expr);
-    if (distance != null) {
-      return environment.getAt(distance, name.lexeme);
+    Local local = locals.get(expr);
+    if (local != null) {
+      return environment.getAt(local.distance, local.index);
     } else {
       return globals.get(name);
     }
