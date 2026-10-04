@@ -3,3 +3,5 @@ class Math {
     return n * n;
   }
 }
+
+print Math.square(3); // Prints "9"

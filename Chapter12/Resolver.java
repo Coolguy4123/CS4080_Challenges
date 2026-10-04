@@ -79,11 +79,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   public Void visitClassStmt(Stmt.Class stmt) {
     for (Stmt.Function method : stmt.classMethods) {
       beginScope();
-      scopes.peek().put("this", true);
+      Token thisToken = new Token(TokenType.THIS, "this", null, 0);
+      scopes.peek().put("this",
+          new Variable(thisToken, scopes.peek().size(), VariableState.READ));
       resolveFunction(method, FunctionType.METHOD);
       endScope();
     }
-      return null;
+    return null;
   }
 
   @Override
