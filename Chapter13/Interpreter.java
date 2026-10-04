@@ -87,6 +87,15 @@ class Interpreter implements Expr.Visitor<Object>,
 
   @Override
   public Void visitClassStmt(Stmt.Class stmt) {
+    Object superclass = null;
+    if (stmt.superclass != null) {
+      superclass = evaluate(stmt.superclass);
+      if (!(superclass instanceof LoxClass)) {
+        throw new RuntimeError(stmt.superclass.name,
+            "Superclass must be a class.");
+      }
+    }
+
     environment.define(stmt.name.lexeme, null);
 
     Map<String, LoxFunction> classMethods = new HashMap<>();
@@ -96,7 +105,7 @@ class Interpreter implements Expr.Visitor<Object>,
     }
 
     LoxClass metaclass = new LoxClass(null,
-        stmt.name.lexeme + " metaclass", classMethods);
+        stmt.name.lexeme + " metaclass", null, classMethods);
 
     Map<String, LoxFunction> methods = new HashMap<>();
     for (Stmt.Function method : stmt.methods) {
@@ -105,7 +114,8 @@ class Interpreter implements Expr.Visitor<Object>,
       methods.put(method.name.lexeme, function);
     }
 
-    LoxClass klass = new LoxClass(metaclass, stmt.name.lexeme, methods);
+    LoxClass klass = new LoxClass(metaclass, stmt.name.lexeme,
+        (LoxClass)superclass, methods);
 
     environment.assign(stmt.name, klass);
     return null;
@@ -335,14 +345,14 @@ class Interpreter implements Expr.Visitor<Object>,
     LoxInstance object = (LoxInstance)environment.getAt(
         local.distance - 1, local.index);
 
-    LoxFunction method = superclass.findMethod(expr.method.lexeme);
+    LoxFunction method = superclass.findMethod(object, expr.method.lexeme);
 
     if (method == null) {
       throw new RuntimeError(expr.method,
           "Undefined property '" + expr.method.lexeme + "'.");
     }
 
-    return method.bind(object);
+    return method;
 
   }
 

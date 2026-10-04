@@ -77,11 +77,18 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitClassStmt(Stmt.Class stmt) {
+    if (stmt.superclass != null) {
+      resolve(stmt.superclass);
+    }
+
     for (Stmt.Function method : stmt.classMethods) {
       beginScope();
       Token thisToken = new Token(TokenType.THIS, "this", null, 0);
       scopes.peek().put("this",
           new Variable(thisToken, scopes.peek().size(), VariableState.READ));
+      Token innerToken = new Token(TokenType.IDENTIFIER, "inner", null, 0);
+      scopes.peek().put("inner",
+          new Variable(innerToken, scopes.peek().size(), VariableState.READ));
       resolveFunction(method, FunctionType.METHOD);
       endScope();
     }
@@ -91,6 +98,9 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
       Token thisToken = new Token(TokenType.THIS, "this", null, 0);
       scopes.peek().put("this",
           new Variable(thisToken, scopes.peek().size(), VariableState.READ));
+      Token innerToken = new Token(TokenType.IDENTIFIER, "inner", null, 0);
+      scopes.peek().put("inner",
+          new Variable(innerToken, scopes.peek().size(), VariableState.READ));
       resolveFunction(method, FunctionType.METHOD);
       endScope();
     }
