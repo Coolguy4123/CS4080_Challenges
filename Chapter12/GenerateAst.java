@@ -46,8 +46,8 @@ public class GenerateAst {
 
       "Block      : List<Stmt> statements",
 
-      "Class      : Token name, Expr.Variable superclass," +
-                  " List<Stmt.Function> methods",
+      "Class      : Token name, List<Stmt.Function> methods," +
+                  " List<Stmt.Function> classMethods",
 
       "Expression : Expr expression",
 

@@ -87,38 +87,26 @@ class Interpreter implements Expr.Visitor<Object>,
 
   @Override
   public Void visitClassStmt(Stmt.Class stmt) {
-
-    Object superclass = null;
-    if (stmt.superclass != null) {
-      superclass = evaluate(stmt.superclass);
-      if (!(superclass instanceof LoxClass)) {
-        throw new RuntimeError(stmt.superclass.name,
-            "Superclass must be a class.");
-      }
-    }
-
+    // Remodified for metaclass
     environment.define(stmt.name.lexeme, null);
 
-    if (stmt.superclass != null) {
-      environment = new Environment(environment);
-      environment.define("super", superclass);
+    Map<String, LoxFunction> classMethods = new HashMap<>();
+    for (Stmt.Function method : stmt.classMethods) {
+      LoxFunction function = new LoxFunction(method, environment, false);
+      classMethods.put(method.name.lexeme, function);
     }
+
+    LoxClass metaclass = new LoxClass(null,
+        stmt.name.lexeme + " metaclass", classMethods);
 
     Map<String, LoxFunction> methods = new HashMap<>();
     for (Stmt.Function method : stmt.methods) {
-
       LoxFunction function = new LoxFunction(method, environment,
           method.name.lexeme.equals("init"));
-
       methods.put(method.name.lexeme, function);
     }
 
-    LoxClass klass = new LoxClass(stmt.name.lexeme,
-        (LoxClass)superclass, methods);
-
-    if (superclass != null) {
-      environment = environment.enclosing;
-    }
+    LoxClass klass = new LoxClass(metaclass, stmt.name.lexeme, methods);
 
     environment.assign(stmt.name, klass);
     return null;

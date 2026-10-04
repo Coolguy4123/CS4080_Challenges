@@ -32,7 +32,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   private enum FunctionType {
     NONE,
-    FUNCTION
+    FUNCTION,
+    METHOD
   }
 
   Resolver(Interpreter interpreter) {
@@ -76,7 +77,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitClassStmt(Stmt.Class stmt) {
-    return null;
+    for (Stmt.Function method : stmt.classMethods) {
+      beginScope();
+      scopes.peek().put("this", true);
+      resolveFunction(method, FunctionType.METHOD);
+      endScope();
+    }
+      return null;
   }
 
   @Override
@@ -280,6 +287,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitThisExpr(Expr.This expr) {
+    resolveLocal(expr, expr.keyword, true);
     return null;
   }
 
