@@ -7,6 +7,7 @@ abstract class Stmt {
   interface Visitor<R> {
     R visitBlockStmt(Block stmt);
     R visitClassStmt(Class stmt);
+    R visitContinueStmt(Continue stmt);
     R visitExpressionStmt(Expression stmt);
     R visitFunctionStmt(Function stmt);
     R visitIfStmt(If stmt);
@@ -49,6 +50,19 @@ abstract class Stmt {
     final Expr.Variable superclass;
     final List<Stmt.Function> methods;
     final List<Stmt.Function> classMethods;
+  }
+
+  static class Continue extends Stmt {
+    Continue(Token keyword) {
+      this.keyword = keyword;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitContinueStmt(this);
+    }
+
+    final Token keyword;
   }
 
   static class Expression extends Stmt {
@@ -142,9 +156,10 @@ abstract class Stmt {
   }
 
   static class While extends Stmt {
-    While(Expr condition, Stmt body) {
+    While(Expr condition, Stmt body, Expr increment) {
       this.condition = condition;
       this.body = body;
+      this.increment = increment;
     }
 
     @Override
@@ -154,6 +169,7 @@ abstract class Stmt {
 
     final Expr condition;
     final Stmt body;
+    final Expr increment;
   }
 
   abstract <R> R accept(Visitor<R> visitor);

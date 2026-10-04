@@ -82,6 +82,8 @@ class Parser {
 
   private Stmt statement() {
 
+    if (match(CONTINUE)) return continueStatement();
+
     if (match(FOR)) return forStatement();
 
     if (match(IF)) return ifStatement();
@@ -123,15 +125,8 @@ class Parser {
 
     Stmt body = statement();
 
-    if (increment != null) {
-      body = new Stmt.Block(
-          Arrays.asList(
-              body,
-              new Stmt.Expression(increment)));
-    }
-
     if (condition == null) condition = new Expr.Literal(true);
-    body = new Stmt.While(condition, body);
+    body = new Stmt.While(condition, body, increment);
 
     if (initializer != null) {
       body = new Stmt.Block(Arrays.asList(initializer, body));
@@ -139,6 +134,12 @@ class Parser {
 
     return body;
 
+  }
+
+  private Stmt continueStatement() {
+    Token keyword = previous();
+    consume(SEMICOLON, "Expect ';' after 'continue'.");
+    return new Stmt.Continue(keyword);
   }
 
   private Stmt ifStatement() {
@@ -190,7 +191,7 @@ class Parser {
     consume(RIGHT_PAREN, "Expect ')' after condition.");
     Stmt body = statement();
 
-    return new Stmt.While(condition, body);
+    return new Stmt.While(condition, body, null);
   }
 
   private Stmt expressionStatement() {
@@ -466,6 +467,7 @@ class Parser {
 
       switch (peek().type) {
         case CLASS:
+        case CONTINUE:
         case FUN:
         case VAR:
         case FOR:

@@ -29,6 +29,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   private final Stack<Map<String, Variable>> scopes = new Stack<>();
 
   private FunctionType currentFunction = FunctionType.NONE;
+  private int loopDepth = 0;
 
   private enum FunctionType {
     NONE,
@@ -103,6 +104,14 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
           new Variable(innerToken, scopes.peek().size(), VariableState.READ));
       resolveFunction(method, FunctionType.METHOD);
       endScope();
+    }
+    return null;
+  }
+
+  @Override
+  public Void visitContinueStmt(Stmt.Continue stmt) {
+    if (loopDepth == 0) {
+      Lox.error(stmt.keyword, "Can't use 'continue' outside of a loop.");
     }
     return null;
   }
@@ -190,7 +199,9 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   private void resolveFunction(Stmt.Function function,FunctionType type) {
     FunctionType enclosingFunction = currentFunction;
+    int enclosingLoopDepth = loopDepth;
     currentFunction = type;
+    loopDepth = 0;
 
     beginScope();
 
@@ -206,6 +217,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     endScope();
 
     currentFunction = enclosingFunction;
+    loopDepth = enclosingLoopDepth;
   }
 
   @Override
@@ -250,7 +262,12 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   @Override
   public Void visitWhileStmt(Stmt.While stmt) {
     resolve(stmt.condition);
+    loopDepth++;
     resolve(stmt.body);
+    loopDepth--;
+    if (stmt.increment != null) {
+      resolve(stmt.increment);
+    }
     return null;
   }
 

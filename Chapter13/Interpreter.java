@@ -11,6 +11,12 @@ import java.util.Map;
 
 class Interpreter implements Expr.Visitor<Object>,
                              Stmt.Visitor<Void> {
+  private static class ContinueSignal extends RuntimeException {
+    ContinueSignal() {
+      super(null, null, false, false);
+    }
+  }
+
 
   final Environment globals = new Environment();
   private Environment environment = globals;
@@ -122,6 +128,11 @@ class Interpreter implements Expr.Visitor<Object>,
   }
 
   @Override
+  public Void visitContinueStmt(Stmt.Continue stmt) {
+    throw new ContinueSignal();
+  }
+
+  @Override
   public Void visitExpressionStmt(Stmt.Expression stmt) {
     evaluate(stmt.expression);
     return null;
@@ -176,7 +187,14 @@ class Interpreter implements Expr.Visitor<Object>,
   @Override
   public Void visitWhileStmt(Stmt.While stmt) {
     while (isTruthy(evaluate(stmt.condition))) {
-      execute(stmt.body);
+      try {
+        execute(stmt.body);
+      } catch (ContinueSignal continueSignal) {
+      }
+
+      if (stmt.increment != null) {
+        evaluate(stmt.increment);
+      }
     }
     return null;
   }

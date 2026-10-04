@@ -50,6 +50,8 @@ public class GenerateAst {
                   " List<Stmt.Function> methods," +
                   " List<Stmt.Function> classMethods",
 
+      "Continue   : Token keyword",
+
       "Expression : Expr expression",
 
       "If         : Expr condition, Stmt thenBranch," +
@@ -62,7 +64,7 @@ public class GenerateAst {
       "Return     : Token keyword, Expr value",
 
       "Var        : Token name, Expr initializer",
-      "While      : Expr condition, Stmt body"
+      "While      : Expr condition, Stmt body, Expr increment"
 
     ));
 
