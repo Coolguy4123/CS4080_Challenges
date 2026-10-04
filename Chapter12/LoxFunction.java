@@ -35,17 +35,20 @@ class LoxFunction implements LoxCallable {
 
   @Override
   public int arity() {
+    if (isGetter()) return 0;
     return declaration.params.size();
   }
 
   @Override
   public Object call(Interpreter interpreter, List<Object> arguments) {
-    
+
     // Chapter 12 Question 2
     Environment environment = new Environment(closure);
-    for (int i = 0; i < declaration.params.size(); i++) {
-      environment.define(declaration.params.get(i).lexeme,
-          arguments.get(i));
+    if (!isGetter()) {
+      for (int i = 0; i < declaration.params.size(); i++) {
+        environment.define(declaration.params.get(i).lexeme,
+            arguments.get(i));
+      }
     }
 
     try {
@@ -62,7 +65,7 @@ class LoxFunction implements LoxCallable {
     return null;
   }
   // Chapter 12 Question 2: Verify if it is a getter function
-  private boolean isGetter(){
+  boolean isGetter() {
     return declaration.params == null;
   }
 }

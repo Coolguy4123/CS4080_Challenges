@@ -196,11 +196,12 @@ class Parser {
 
   private Stmt.Function function(String kind) {
     Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+    List<Token> parameters = null;
 
     // Chapter 12 Question 2: Omits the paramaters for getter/setter functions
-    if (!kind.equals("method") || check(LEFT_PAREN)){
+    if (!kind.equals("method") || check(LEFT_PAREN)) {
       consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
-      List<Token> parameters = new ArrayList<>();
+      parameters = new ArrayList<>();
 
       if (!check(RIGHT_PAREN)) {
         do {

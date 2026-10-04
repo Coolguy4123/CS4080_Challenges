@@ -281,7 +281,7 @@ class Interpreter implements Expr.Visitor<Object>,
     Object object = evaluate(expr.object);
     if (object instanceof LoxInstance) {
       Object result = ((LoxInstance) object).get(expr.name);
-      if (result instanceof LoxFunction && ((LoxInstance) result).isGetter()) {
+      if (result instanceof LoxFunction && ((LoxFunction) result).isGetter()) {
         result = ((LoxFunction) result).call(this, null);
       }
       return result;
