@@ -169,10 +169,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     return null;
   }
 
-  private void resolveFunction(
-      Stmt.Function function,
-      FunctionType type) {
-
+  // Chapter 12 Question 2
+  private void resolveFunction(Stmt.Function function,FunctionType type) {
     FunctionType enclosingFunction = currentFunction;
     currentFunction = type;
 

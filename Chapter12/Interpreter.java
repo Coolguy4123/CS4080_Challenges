@@ -277,9 +277,14 @@ class Interpreter implements Expr.Visitor<Object>,
 
   @Override
   public Object visitGetExpr(Expr.Get expr) {
+    //Modified for Chapter 12 Question 2
     Object object = evaluate(expr.object);
     if (object instanceof LoxInstance) {
-      return ((LoxInstance) object).get(expr.name);
+      Object result = ((LoxInstance) object).get(expr.name);
+      if (result instanceof LoxFunction && ((LoxInstance) result).isGetter()) {
+        result = ((LoxFunction) result).call(this, null);
+      }
+      return result;
     }
 
     throw new RuntimeError(expr.name,
