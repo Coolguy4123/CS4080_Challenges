@@ -85,6 +85,15 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
       resolveFunction(method, FunctionType.METHOD);
       endScope();
     }
+
+    for (Stmt.Function method : stmt.methods) {
+      beginScope();
+      Token thisToken = new Token(TokenType.THIS, "this", null, 0);
+      scopes.peek().put("this",
+          new Variable(thisToken, scopes.peek().size(), VariableState.READ));
+      resolveFunction(method, FunctionType.METHOD);
+      endScope();
+    }
     return null;
   }
 
@@ -176,9 +185,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     beginScope();
 
-    for (Token parameter : function.params) {
-      declare(parameter);
-      define(parameter);
+    if (function.params != null) {
+      for (Token parameter : function.params) {
+        declare(parameter);
+        define(parameter);
+      }
     }
 
     resolve(function.body);
@@ -254,6 +265,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitGetExpr(Expr.Get expr) {
+    resolve(expr.object);
     return null;
   }
 
@@ -277,6 +289,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitSetExpr(Expr.Set expr) {
+    resolve(expr.value);
+    resolve(expr.object);
     return null;
   }
 
