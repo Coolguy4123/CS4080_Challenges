@@ -1,30 +1,22 @@
-
 #include <stdlib.h>
 
 #include "chunk.h"
-
 #include "memory.h"
-
-#include "vm.h"
 
 void initChunk(Chunk* chunk) {
   chunk->count = 0;
   chunk->capacity = 0;
   chunk->code = NULL;
-  chunk->lines = NULL;
-  chunk->lineCapacity = 0;
-  chunk->lineCount = 0;
-
   initValueArray(&chunk->constants);
+  chunk->lineCount = 0;
+  chunk->lineCapacity = 0;
+  chunk->lines = NULL;
 }
 
 void freeChunk(Chunk* chunk) {
   FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
-
-  FREE_ARRAY(LineStart, chunk->lines, chunk->lineCapacity);
-
   freeValueArray(&chunk->constants);
-
+  FREE_ARRAY(LineStart, chunk->lines, chunk->lineCapacity);
   initChunk(chunk);
 }
 
@@ -56,12 +48,7 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
 }
 
 int addConstant(Chunk* chunk, Value value) {
-  push(value);
-
   writeValueArray(&chunk->constants, value);
-
-  pop();
-
   return chunk->constants.count - 1;
 }
 
@@ -72,6 +59,7 @@ int getLine(Chunk* chunk, int instruction) {
   for (;;) {
     int mid = (start + end) / 2;
     LineStart* line = &chunk->lines[mid];
+
     if (instruction < line->offset) {
       end = mid - 1;
     } else if (mid == chunk->lineCount - 1 ||
