@@ -74,6 +74,9 @@ static InterpretResult run(void) {
         push(constant);
         break;
       }
+      case OP_NEGATE: // Chapter 15 Question 4
+        vm.stack[vm.stackCount - 1] = -vm.stack[vm.stackCount - 1];
+        break;
       case OP_RETURN:
         printValue(pop());
         printf("\n");
