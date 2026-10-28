@@ -122,12 +122,8 @@ typedef struct {
 
 struct ObjString {
   Obj obj;
-  bool ownsChars;
   int length;
-  const char* chars;
-
-  uint32_t hash;
-
+  char chars[];
 };
 
 
@@ -199,7 +195,7 @@ ObjInstance* newInstance(ObjClass* klass);
 ObjNative* newNative(NativeFn function);
 
 
-ObjString* makeString(bool ownsChars, char* chars, int length);
+ObjString* makeString(int length);
 
 
 ObjString* copyString(const char* chars, int length);

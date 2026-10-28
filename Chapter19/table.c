@@ -10,6 +10,15 @@
 
 #define TABLE_MAX_LOAD 0.75
 
+static uint32_t hashString(const char* chars, int length) {
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++) {
+    hash ^= (uint8_t)chars[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
+
 
 void initTable(Table* table) {
   table->count = 0;
@@ -31,7 +40,7 @@ static Entry* findEntry(Entry* entries, int capacity,
                         ObjString* key) {
 
 
-  uint32_t index = key->hash & (capacity - 1);
+  uint32_t index = hashString(key->chars, key->length) & (capacity - 1);
 
 
   Entry* tombstone = NULL;
@@ -165,7 +174,6 @@ ObjString* tableFindString(Table* table, const char* chars,
 
       if (IS_NIL(entry->value)) return NULL;
     } else if (entry->key->length == length &&
-        entry->key->hash == hash &&
         memcmp(entry->key->chars, chars, length) == 0) {
 
       return entry->key;
