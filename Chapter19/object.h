@@ -122,8 +122,10 @@ typedef struct {
 
 struct ObjString {
   Obj obj;
+  // Chapter 19 Challenge 2
+  bool ownsChars;
   int length;
-  char chars[];
+  const char* chars;
 };
 
 
@@ -195,7 +197,8 @@ ObjInstance* newInstance(ObjClass* klass);
 ObjNative* newNative(NativeFn function);
 
 
-ObjString* makeString(int length);
+// Chapter 19 Challenge 2: Create strings with explicit character-array ownership.
+ObjString* makeString(bool ownsChars, char* chars, int length);
 
 
 ObjString* copyString(const char* chars, int length);

@@ -669,9 +669,9 @@ static void or_(bool canAssign) {
 
 
 static void string(bool canAssign) {
-
-  emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
-                                  parser.previous.length - 2)));
+  // Chapter 19 Challenge 2
+  emitConstant(OBJ_VAL(makeString(
+      false, (char*)parser.previous.start + 1, parser.previous.length - 2)));
 }
 
 

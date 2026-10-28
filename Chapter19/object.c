@@ -107,18 +107,21 @@ ObjNative* newNative(NativeFn function) {
 
 
 
-ObjString* makeString(int length) {
-  ObjString* string = (ObjString*)allocateObject(
-      sizeof(ObjString) + length + 1, OBJ_STRING);
+// Chapter 19 Challenge 2
+ObjString* makeString(bool ownsChars, char* chars, int length) {
+  ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+  string->ownsChars = ownsChars;
   string->length = length;
+  string->chars = chars;
   return string;
 }
 
+// Chapter 19 Challenge 2
 ObjString* copyString(const char* chars, int length) {
-  ObjString* string = makeString(length);
-  memcpy(string->chars, chars, length);
-  string->chars[length] = '\0';
-  return string;
+  char* heapChars = ALLOCATE(char, length + 1);
+  memcpy(heapChars, chars, length);
+  heapChars[length] = '\0';
+  return makeString(true, heapChars, length);
 }
 
 ObjUpvalue* newUpvalue(Value* slot) {
@@ -179,6 +182,7 @@ void printObject(Value value) {
       break;
 
     case OBJ_STRING:
+      // Chapter 19 Challenge 2: Print strings using their length instead of assuming termination.
       printf("%.*s", AS_STRING(value)->length, AS_CSTRING(value));
       break;
 
