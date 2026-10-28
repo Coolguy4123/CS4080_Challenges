@@ -97,11 +97,13 @@ static inline Value numToValue(double num) {
 
 
 typedef enum {
+  // Chapter 20 Challenge 1
   VAL_BOOL,
   VAL_NIL,
   VAL_NUMBER,
 
-  VAL_OBJ
+  VAL_OBJ,
+  VAL_EMPTY
 
 } ValueType;
 
@@ -126,6 +128,8 @@ typedef struct {
 #define IS_NUMBER(value)  ((value).type == VAL_NUMBER)
 
 #define IS_OBJ(value)     ((value).type == VAL_OBJ)
+// Chapter 20 Challenge 1
+#define IS_EMPTY(value)   ((value).type == VAL_EMPTY)
 
 
 
@@ -143,6 +147,8 @@ typedef struct {
 #define NUMBER_VAL(value) ((Value){VAL_NUMBER, {.number = value}})
 
 #define OBJ_VAL(object)   ((Value){VAL_OBJ, {.obj = (Obj*)object}})
+// Chapter 20 Challenge 1
+#define EMPTY_VAL         ((Value){VAL_EMPTY, {.number = 0}})
 
 
 
@@ -160,7 +166,9 @@ typedef struct {
 
 
 
+// Chapter 20 Challenge 1
 bool valuesEqual(Value a, Value b);
+uint32_t hashValue(Value value);
 
 void initValueArray(ValueArray* array);
 void writeValueArray(ValueArray* array, Value value);

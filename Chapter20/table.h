@@ -7,7 +7,8 @@
 
 
 typedef struct {
-  ObjString* key;
+  // Chapter 20 Challenge 1
+  Value key;
   Value value;
 } Entry;
 
@@ -24,13 +25,14 @@ void initTable(Table* table);
 void freeTable(Table* table);
 
 
-bool tableGet(Table* table, ObjString* key, Value* value);
+// Chapter 20 Challenge 1
+bool tableGet(Table* table, Value key, Value* value);
 
 
-bool tableSet(Table* table, ObjString* key, Value value);
+bool tableSet(Table* table, Value key, Value value);
 
 
-bool tableDelete(Table* table, ObjString* key);
+bool tableDelete(Table* table, Value key);
 
 
 void tableAddAll(Table* from, Table* to);

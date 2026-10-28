@@ -123,6 +123,8 @@ typedef struct {
 struct ObjString {
   Obj obj;
 
+  // Chapter 20 Challenge 1
+  uint32_t hash;
   bool ownsChars;
   int length;
   const char* chars;

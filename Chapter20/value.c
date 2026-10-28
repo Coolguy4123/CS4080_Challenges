@@ -60,6 +60,8 @@ void printValue(Value value) {
     case VAL_NUMBER: printf("%g", AS_NUMBER(value)); break;
 
     case VAL_OBJ: printObject(value); break;
+    // Chapter 20 Challenge 1
+    case VAL_EMPTY: printf("<empty>"); break;
 
   }
 
@@ -69,6 +71,7 @@ void printValue(Value value) {
 }
 
 
+// Chapter 20 Challenge 1
 bool valuesEqual(Value a, Value b) {
 
 #ifdef NAN_BOXING
@@ -103,10 +106,34 @@ bool valuesEqual(Value a, Value b) {
                       aString->length) == 0;
       }
       return AS_OBJ(a) == AS_OBJ(b);
+    case VAL_EMPTY: return true;
 
     default:         return false;
   }
 
 #endif
 
+}
+
+// Chapter 20 Challenge 1: Hash numeric values using their bit representation.
+static uint32_t hashDouble(double value) {
+  union BitCast {
+    double value;
+    uint32_t ints[2];
+  };
+
+  union BitCast cast;
+  cast.value = value + 1.0;
+  return cast.ints[0] + cast.ints[1];
+}
+
+// Chapter 20 Challenge 1: Generate hashes for every supported value type.
+uint32_t hashValue(Value value) {
+  switch (value.type) {
+    case VAL_BOOL: return AS_BOOL(value) ? 3 : 5;
+    case VAL_NIL: return 7;
+    case VAL_NUMBER: return hashDouble(AS_NUMBER(value));
+    case VAL_OBJ: return AS_STRING(value)->hash;
+    case VAL_EMPTY: return 0;
+  }
 }

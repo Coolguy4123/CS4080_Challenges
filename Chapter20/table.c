@@ -10,16 +10,6 @@
 
 #define TABLE_MAX_LOAD 0.75
 
-static uint32_t hashString(const char* chars, int length) {
-  uint32_t hash = 2166136261u;
-  for (int i = 0; i < length; i++) {
-    hash ^= (uint8_t)chars[i];
-    hash *= 16777619;
-  }
-  return hash;
-}
-
-
 void initTable(Table* table) {
   table->count = 0;
   table->capacity = 0;
@@ -37,10 +27,10 @@ void freeTable(Table* table) {
 
 
 static Entry* findEntry(Entry* entries, int capacity,
-                        ObjString* key) {
+                        Value key) {
+  // Chapter 20 Challenge 1
 
-
-  uint32_t index = hashString(key->chars, key->length) & (capacity - 1);
+  uint32_t index = hashValue(key) & (capacity - 1);
 
 
   Entry* tombstone = NULL;
@@ -50,7 +40,7 @@ static Entry* findEntry(Entry* entries, int capacity,
     Entry* entry = &entries[index];
 
 
-    if (entry->key == NULL) {
+    if (IS_EMPTY(entry->key)) {
       if (IS_NIL(entry->value)) {
 
         return tombstone != NULL ? tombstone : entry;
@@ -58,7 +48,7 @@ static Entry* findEntry(Entry* entries, int capacity,
 
         if (tombstone == NULL) tombstone = entry;
       }
-    } else if (entry->key == key) {
+    } else if (valuesEqual(key, entry->key)) {
 
       return entry;
     }
@@ -72,11 +62,12 @@ static Entry* findEntry(Entry* entries, int capacity,
 }
 
 
-bool tableGet(Table* table, ObjString* key, Value* value) {
+bool tableGet(Table* table, Value key, Value* value) {
+  // Chapter 20 Challenge 1
   if (table->count == 0) return false;
 
   Entry* entry = findEntry(table->entries, table->capacity, key);
-  if (entry->key == NULL) return false;
+  if (IS_EMPTY(entry->key)) return false;
 
   *value = entry->value;
   return true;
@@ -84,9 +75,10 @@ bool tableGet(Table* table, ObjString* key, Value* value) {
 
 
 static void adjustCapacity(Table* table, int capacity) {
+  // Chapter 20 Challenge 1
   Entry* entries = ALLOCATE(Entry, capacity);
   for (int i = 0; i < capacity; i++) {
-    entries[i].key = NULL;
+    entries[i].key = EMPTY_VAL;
     entries[i].value = NIL_VAL;
   }
 
@@ -96,7 +88,7 @@ static void adjustCapacity(Table* table, int capacity) {
 
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
-    if (entry->key == NULL) continue;
+    if (IS_EMPTY(entry->key)) continue;
 
     Entry* dest = findEntry(entries, capacity, entry->key);
     dest->key = entry->key;
@@ -115,8 +107,8 @@ static void adjustCapacity(Table* table, int capacity) {
 }
 
 
-bool tableSet(Table* table, ObjString* key, Value value) {
-
+bool tableSet(Table* table, Value key, Value value) {
+  // Chapter 20 Challenge 1
   if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
     adjustCapacity(table, capacity);
@@ -124,7 +116,7 @@ bool tableSet(Table* table, ObjString* key, Value value) {
 
 
   Entry* entry = findEntry(table->entries, table->capacity, key);
-  bool isNewKey = entry->key == NULL;
+  bool isNewKey = IS_EMPTY(entry->key);
 
 
   if (isNewKey && IS_NIL(entry->value)) table->count++;
@@ -136,24 +128,26 @@ bool tableSet(Table* table, ObjString* key, Value value) {
 }
 
 
-bool tableDelete(Table* table, ObjString* key) {
+bool tableDelete(Table* table, Value key) {
+  // Chapter 20 Challenge 1
   if (table->count == 0) return false;
 
 
   Entry* entry = findEntry(table->entries, table->capacity, key);
-  if (entry->key == NULL) return false;
+  if (IS_EMPTY(entry->key)) return false;
 
 
-  entry->key = NULL;
+  entry->key = EMPTY_VAL;
   entry->value = BOOL_VAL(true);
   return true;
 }
 
 
 void tableAddAll(Table* from, Table* to) {
+  // Chapter 20 Challenge 1
   for (int i = 0; i < from->capacity; i++) {
     Entry* entry = &from->entries[i];
-    if (entry->key != NULL) {
+    if (!IS_EMPTY(entry->key)) {
       tableSet(to, entry->key, entry->value);
     }
   }
@@ -162,6 +156,7 @@ void tableAddAll(Table* from, Table* to) {
 
 ObjString* tableFindString(Table* table, const char* chars,
                            int length, uint32_t hash) {
+  // Chapter 20 Challenge 1
   if (table->count == 0) return NULL;
 
 
@@ -170,13 +165,15 @@ ObjString* tableFindString(Table* table, const char* chars,
 
   for (;;) {
     Entry* entry = &table->entries[index];
-    if (entry->key == NULL) {
+    if (IS_EMPTY(entry->key)) {
 
       if (IS_NIL(entry->value)) return NULL;
-    } else if (entry->key->length == length &&
-        memcmp(entry->key->chars, chars, length) == 0) {
-
-      return entry->key;
+    } else {
+      ObjString* string = AS_STRING(entry->key);
+      if (string->length == length &&
+          memcmp(string->chars, chars, length) == 0) {
+        return string;
+      }
     }
 
 
@@ -190,7 +187,7 @@ ObjString* tableFindString(Table* table, const char* chars,
 void tableRemoveWhite(Table* table) {
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
-    if (entry->key != NULL && !entry->key->obj.isMarked) {
+    if (!IS_EMPTY(entry->key) && !AS_OBJ(entry->key)->isMarked) {
       tableDelete(table, entry->key);
     }
   }
@@ -200,7 +197,7 @@ void tableRemoveWhite(Table* table) {
 void markTable(Table* table) {
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
-    markObject((Obj*)entry->key);
+    if (!IS_EMPTY(entry->key)) markObject(AS_OBJ(entry->key));
     markValue(entry->value);
   }
 }
