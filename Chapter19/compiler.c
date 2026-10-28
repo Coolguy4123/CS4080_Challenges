@@ -20,8 +20,6 @@
 #endif
 
 
-static ObjString* makeOwnedString(const char* chars, int length);
-
 
 typedef struct {
   Token current;
@@ -298,8 +296,8 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
   current = compiler;
 
   if (type != TYPE_SCRIPT) {
-    current->function->name = makeOwnedString(parser.previous.start,
-                                               parser.previous.length);
+    current->function->name = copyString(parser.previous.start,
+                                         parser.previous.length);
   }
 
 
@@ -389,17 +387,10 @@ static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
 
 
-static ObjString* makeOwnedString(const char* chars, int length) {
-  char* ownedChars = ALLOCATE(char, length + 1);
-  memcpy(ownedChars, chars, length);
-  ownedChars[length] = '\0';
-  return makeString(true, ownedChars, length);
-}
-
-
 
 static uint8_t identifierConstant(Token* name) {
-  return makeConstant(OBJ_VAL(makeOwnedString(name->start, name->length)));
+  return makeConstant(OBJ_VAL(copyString(name->start,
+                                         name->length)));
 }
 
 
@@ -678,7 +669,6 @@ static void or_(bool canAssign) {
 
 
 static void string(bool canAssign) {
-
 
   emitConstant(OBJ_VAL(makeString(
       false, (char*)parser.previous.start + 1, parser.previous.length - 2)));

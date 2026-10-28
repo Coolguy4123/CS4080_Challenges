@@ -105,6 +105,32 @@ ObjNative* newNative(NativeFn function) {
 
 
 
+
+
+static ObjString* allocateString(char* chars, int length,
+                                 uint32_t hash) {
+
+  ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+  string->ownsChars = true;
+  string->length = length;
+  string->chars = chars;
+
+  string->hash = hash;
+
+
+
+
+  push(OBJ_VAL(string));
+
+  tableSet(&vm.strings, string, NIL_VAL);
+
+  pop();
+
+
+
+  return string;
+}
+
 ObjString* makeString(bool ownsChars, char* chars, int length) {
   ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
   string->ownsChars = ownsChars;
@@ -113,6 +139,52 @@ ObjString* makeString(bool ownsChars, char* chars, int length) {
   return string;
 }
 
+
+static uint32_t hashString(const char* key, int length) {
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++) {
+    hash ^= (uint8_t)key[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
+
+
+ObjString* takeString(char* chars, int length) {
+
+
+  uint32_t hash = hashString(chars, length);
+
+  ObjString* interned = tableFindString(&vm.strings, chars, length,
+                                        hash);
+  if (interned != NULL) {
+    FREE_ARRAY(char, chars, length + 1);
+    return interned;
+  }
+
+
+  return allocateString(chars, length, hash);
+
+}
+
+ObjString* copyString(const char* chars, int length) {
+
+  uint32_t hash = hashString(chars, length);
+
+  ObjString* interned = tableFindString(&vm.strings, chars, length,
+                                        hash);
+  if (interned != NULL) return interned;
+
+
+
+  char* heapChars = ALLOCATE(char, length + 1);
+  memcpy(heapChars, chars, length);
+  heapChars[length] = '\0';
+
+
+  return allocateString(heapChars, length, hash);
+
+}
 
 ObjUpvalue* newUpvalue(Value* slot) {
   ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
@@ -124,24 +196,6 @@ ObjUpvalue* newUpvalue(Value* slot) {
   upvalue->next = NULL;
 
   return upvalue;
-}
-
-
-
-static void freeObject(Obj* object) {
-  switch (object->type) {
-    case OBJ_STRING: {
-      ObjString* string = (ObjString*)object;
-      if (string->ownsChars) {
-        FREE_ARRAY(char, (char*)string->chars, string->length + 1);
-      }
-      FREE(ObjString, object);
-      break;
-    }
-    default:
-      FREE(Obj, object);
-      break;
-  }
 }
 
 
@@ -190,7 +244,6 @@ void printObject(Value value) {
       break;
 
     case OBJ_STRING:
-
       printf("%.*s", AS_STRING(value)->length, AS_CSTRING(value));
       break;
 

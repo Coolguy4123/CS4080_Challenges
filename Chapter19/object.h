@@ -122,7 +122,6 @@ typedef struct {
 
 struct ObjString {
   Obj obj;
-
   bool ownsChars;
   int length;
   const char* chars;
@@ -201,6 +200,9 @@ ObjNative* newNative(NativeFn function);
 
 
 ObjString* makeString(bool ownsChars, char* chars, int length);
+
+
+ObjString* copyString(const char* chars, int length);
 
 ObjUpvalue* newUpvalue(Value* slot);
 
