@@ -77,22 +77,49 @@ static void runFile(const char* path) {
   if (result == INTERPRET_RUNTIME_ERROR) exit(70);
 }
 
+static void testTableKeys(void) {
+  Table table;
+  Value value;
+
+  printf("Chapter 20 table key test\n");
+  printf("1. Creating an empty table\n");
+  initTable(&table);
+
+  printf("2. Inserting a number key: 42 -> 100\n");
+  tableSet(&table, NUMBER_VAL(42), NUMBER_VAL(100));
+  printf("3. Inserting a Boolean key: true -> 200\n");
+  tableSet(&table, BOOL_VAL(true), NUMBER_VAL(200));
+  printf("4. Inserting a nil key: nil -> 300\n");
+  tableSet(&table, NIL_VAL, NUMBER_VAL(300));
+
+  printf("5. Looking up the number key: ");
+  if (tableGet(&table, NUMBER_VAL(42), &value)) {
+    printValue(value);
+    printf("\n");
+  }
+
+  printf("6. Looking up the Boolean key: ");
+  if (tableGet(&table, BOOL_VAL(true), &value)) {
+    printValue(value);
+    printf("\n");
+  }
+
+  printf("7. Looking up the nil key: ");
+  if (tableGet(&table, NIL_VAL, &value)) {
+    printValue(value);
+    printf("\n");
+  }
+
+  printf("8. Freeing the table\n");
+  freeTable(&table);
+  printf("Table key test completed.\n\n");
+}
+
 
 int main(int argc, const char* argv[]) {
 
   initVM();
-
-
-
-
-
-
-
-
-
-
-
-
+  testTableKeys();
 
   if (argc == 1) {
     repl();
