@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 
 #include "common.h"
@@ -11,6 +12,9 @@
 
 
 #include "debug.h"
+
+
+#include "object.h"
 
 
 #include "vm.h"
@@ -77,49 +81,131 @@ static void runFile(const char* path) {
   if (result == INTERPRET_RUNTIME_ERROR) exit(70);
 }
 
-static void testTableKeys(void) {
+static double elapsedSeconds(clock_t start, clock_t end) {
+  return (double)(end - start) / CLOCKS_PER_SEC;
+}
+
+
+static void benchmarkNumericInserts(int count) {
+  Table table;
+  clock_t start;
+
+  initTable(&table);
+  start = clock();
+  for (int i = 0; i < count; i++) {
+    tableSet(&table, NUMBER_VAL(i), NUMBER_VAL(i));
+  }
+  clock_t end = clock();
+
+  printf("Time for inserting %d number keys: %.6f seconds\n",
+         count, elapsedSeconds(start, end));
+  freeTable(&table);
+}
+
+
+static void benchmarkLookups(int count) {
   Table table;
   Value value;
+  volatile int checksum = 0;
+  clock_t start;
 
-  printf("Chapter 20 table key test\n");
-  printf("1. Creating an empty table\n");
   initTable(&table);
-
-  printf("2. Inserting a number key: 42 -> 100\n");
-  tableSet(&table, NUMBER_VAL(42), NUMBER_VAL(100));
-  printf("3. Inserting a Boolean key: true -> 200\n");
-  tableSet(&table, BOOL_VAL(true), NUMBER_VAL(200));
-  printf("4. Inserting a nil key: nil -> 300\n");
-  tableSet(&table, NIL_VAL, NUMBER_VAL(300));
-
-  printf("5. Looking up the number key: ");
-  if (tableGet(&table, NUMBER_VAL(42), &value)) {
-    printValue(value);
-    printf("\n");
+  for (int i = 0; i < count; i++) {
+    tableSet(&table, NUMBER_VAL(i), NUMBER_VAL(i));
   }
 
-  printf("6. Looking up the Boolean key: ");
-  if (tableGet(&table, BOOL_VAL(true), &value)) {
-    printValue(value);
-    printf("\n");
+  start = clock();
+  for (int i = 0; i < count; i++) {
+    if (tableGet(&table, NUMBER_VAL(i), &value)) {
+      checksum += (int)AS_NUMBER(value);
+    }
   }
+  clock_t end = clock();
 
-  printf("7. Looking up the nil key: ");
-  if (tableGet(&table, NIL_VAL, &value)) {
-    printValue(value);
-    printf("\n");
-  }
-
-  printf("8. Freeing the table\n");
+  printf("Time for lookup: %.6f seconds\n", elapsedSeconds(start, end));
   freeTable(&table);
-  printf("Table key test completed.\n\n");
+}
+
+
+static void benchmarkCollisionLookups(int count) {
+  Table table;
+  Value* keys = malloc(sizeof(Value) * 32);
+  Value value;
+  volatile int checksum = 0;
+  int found = 0;
+  int candidate = count;
+  clock_t start;
+
+  if (keys == NULL) {
+    fprintf(stderr, "Could not allocate collision keys.\n");
+    exit(74);
+  }
+
+  initTable(&table);
+  for (int i = 0; i < count; i++) {
+    tableSet(&table, NUMBER_VAL(i), NUMBER_VAL(i));
+  }
+
+  uint32_t target = hashValue(NUMBER_VAL(candidate)) &
+                    (table.capacity - 1);
+  while (found < 32) {
+    if ((hashValue(NUMBER_VAL(candidate)) & (table.capacity - 1)) == target) {
+      keys[found++] = NUMBER_VAL(candidate);
+      tableSet(&table, NUMBER_VAL(candidate), NUMBER_VAL(candidate));
+    }
+    candidate++;
+  }
+
+  start = clock();
+  for (int i = 0; i < count; i++) {
+    if (tableGet(&table, keys[i % 32], &value)) {
+      checksum += (int)AS_NUMBER(value);
+    }
+  }
+  clock_t end = clock();
+
+  printf("Time for lookup with collisions: %.6f seconds\n",
+         elapsedSeconds(start, end));
+  free(keys);
+  freeTable(&table);
+}
+
+
+static void benchmarkDeletes(int count) {
+  Table table;
+  clock_t start;
+
+  initTable(&table);
+  for (int i = 0; i < count; i++) {
+    tableSet(&table, NUMBER_VAL(i), NUMBER_VAL(i));
+  }
+
+  start = clock();
+  for (int i = 0; i < count; i++) {
+    tableDelete(&table, NUMBER_VAL(i));
+  }
+  clock_t end = clock();
+
+  printf("Time for deleting %d entries: %.6f seconds\n", count,
+         elapsedSeconds(start, end));
+  freeTable(&table);
+}
+
+
+static void runBenchmarks(void) {
+  const int count = 50000;
+
+  benchmarkNumericInserts(count);
+  benchmarkLookups(count);
+  benchmarkCollisionLookups(count);
+  benchmarkDeletes(count);
 }
 
 
 int main(int argc, const char* argv[]) {
 
   initVM();
-  testTableKeys();
+  runBenchmarks();
 
   if (argc == 1) {
     repl();
