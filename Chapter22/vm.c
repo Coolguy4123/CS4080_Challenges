@@ -482,8 +482,28 @@ static InterpretResult run() {
       }
 
 
+    case OP_GET_LOCAL_LONG:{
+        uint16_t        slot = READ_SHORT();
+
+
+        push(frame->slots[slot]);
+
+        break;
+      }
+
+
     case OP_SET_LOCAL:{
         uint8_t         slot = READ_BYTE();
+
+
+        frame->slots[slot] = peek(0);
+
+        break;
+      }
+
+
+    case OP_SET_LOCAL_LONG:{
+        uint16_t        slot = READ_SHORT();
 
 
         frame->slots[slot] = peek(0);

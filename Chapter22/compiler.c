@@ -86,7 +86,7 @@ typedef struct Compiler {
   struct Compiler *enclosing;
   ObjFunction    *function;
   FunctionType    type;
-  Local           locals[UINT8_COUNT];
+  Local           locals[UINT16_COUNT];
   int             localCount;
   Upvalue         upvalues[UINT8_COUNT];
   int             scopeDepth;
@@ -213,6 +213,20 @@ emitBytes(uint8_t byte1, uint8_t byte2)
 {
   emitByte(byte1);
   emitByte(byte2);
+}
+
+
+static void
+emitLocalInstruction(uint8_t shortInstruction, uint8_t longInstruction,
+                     int index)
+{
+  if (index <= UINT8_MAX) {
+    emitBytes(shortInstruction, (uint8_t) index);
+  } else {
+    emitByte(longInstruction);
+    emitByte((uint8_t) (index >> 8));
+    emitByte((uint8_t) index);
+  }
 }
 
 
@@ -493,7 +507,7 @@ static void
 addLocal(Token name, bool isConst)
 {
 
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == UINT16_COUNT) {
     error("Too many local variables in function.");
     return;
   }
@@ -762,8 +776,8 @@ namedVariable(Token name, bool canAssign)
   uint8_t         getOp, setOp;
   int             arg = resolveLocal(current, &name);
   if (arg != -1) {
-    getOp = OP_GET_LOCAL;
-    setOp = OP_SET_LOCAL;
+    getOp = arg <= UINT8_MAX ? OP_GET_LOCAL : OP_GET_LOCAL_LONG;
+    setOp = arg <= UINT8_MAX ? OP_SET_LOCAL : OP_SET_LOCAL_LONG;
 
   } else if ((arg = resolveUpvalue(current, &name)) != -1) {
     getOp = OP_GET_UPVALUE;
@@ -783,7 +797,7 @@ namedVariable(Token name, bool canAssign)
   if (canAssign && match(TOKEN_EQUAL)) {
 
     bool isConst = false;
-    if (getOp == OP_GET_LOCAL) {
+    if (getOp == OP_GET_LOCAL || getOp == OP_GET_LOCAL_LONG) {
       isConst = current->locals[arg].isConst;
     } else if (getOp == OP_GET_UPVALUE) {
       isConst = current->upvalues[arg].isConst;
@@ -800,12 +814,20 @@ namedVariable(Token name, bool canAssign)
     expression();
 
 
-    emitBytes(setOp, (uint8_t) arg);
+    if (setOp == OP_SET_LOCAL || setOp == OP_SET_LOCAL_LONG) {
+      emitLocalInstruction(OP_SET_LOCAL, OP_SET_LOCAL_LONG, arg);
+    } else {
+      emitBytes(setOp, (uint8_t) arg);
+    }
 
   } else {
 
 
-    emitBytes(getOp, (uint8_t) arg);
+    if (getOp == OP_GET_LOCAL || getOp == OP_GET_LOCAL_LONG) {
+      emitLocalInstruction(OP_GET_LOCAL, OP_GET_LOCAL_LONG, arg);
+    } else {
+      emitBytes(getOp, (uint8_t) arg);
+    }
 
   }
 
