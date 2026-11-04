@@ -159,6 +159,10 @@ static TokenType identifierType() {
       case 'a':
         return checkKeyword(1, 3, "ase", TOKEN_CASE);
       case 'o':
+        if (checkKeyword(1, 7, "ontinue", TOKEN_CONTINUE) !=
+            TOKEN_IDENTIFIER) {
+          return TOKEN_CONTINUE;
+        }
         return checkKeyword(1, 4, "onst", TOKEN_CONST);
       }
     }

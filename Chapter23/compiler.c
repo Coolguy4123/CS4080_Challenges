@@ -106,6 +106,8 @@ ClassCompiler  *currentClass = NULL;
 
 Table           stringConstants;
 Table           constGlobals;
+int             innermostLoopStart = -1;
+int             innermostLoopScopeDepth = 0;
 
 
 
@@ -408,6 +410,7 @@ static void     expression();
 static void     statement();
 static void     declaration();
 static void     switchStatement();
+static void     continueStatement();
 
 static ParseRule * getRule(TokenType type);
 static void     parsePrecedence(Precedence precedence);
@@ -1271,7 +1274,10 @@ forStatement()
   }
 
 
-  int             loopStart = currentChunk()->count;
+  int             surroundingLoopStart = innermostLoopStart;
+  int             surroundingLoopScopeDepth = innermostLoopScopeDepth;
+  innermostLoopStart = currentChunk()->count;
+  innermostLoopScopeDepth = current->scopeDepth;
 
 
   int             exitJump = -1;
@@ -1290,20 +1296,42 @@ forStatement()
     emitByte(OP_POP);
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
 
-    emitLoop(loopStart);
-    loopStart = incrementStart;
+    emitLoop(innermostLoopStart);
+    innermostLoopStart = incrementStart;
     patchJump(bodyJump);
   }
   statement();
-  emitLoop(loopStart);
+  emitLoop(innermostLoopStart);
 
 
   if (exitJump != -1) {
     patchJump(exitJump);
     emitByte(OP_POP);
   }
+  innermostLoopStart = surroundingLoopStart;
+  innermostLoopScopeDepth = surroundingLoopScopeDepth;
   endScope();
 
+}
+
+
+static void
+continueStatement()
+{
+  if (innermostLoopStart == -1) {
+    error("Can't use 'continue' outside of a loop.");
+  }
+
+  consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
+
+  for (int i = current->localCount - 1;
+       i >= 0 && current->locals[i].depth > innermostLoopScopeDepth; i--) {
+    emitByte(OP_POP);
+  }
+
+  if (innermostLoopStart != -1) {
+    emitLoop(innermostLoopStart);
+  }
 }
 
 
@@ -1472,6 +1500,7 @@ synchronize()
     case TOKEN_FUN:
     case TOKEN_VAR:
     case TOKEN_CONST:
+    case TOKEN_CONTINUE:
     case TOKEN_FOR:
     case TOKEN_IF:
     case TOKEN_WHILE:
@@ -1544,6 +1573,10 @@ statement()
 
   } else if (match(TOKEN_SWITCH)) {
     switchStatement();
+
+
+  } else if (match(TOKEN_CONTINUE)) {
+    continueStatement();
 
 
   } else if (match(TOKEN_LEFT_BRACE)) {
