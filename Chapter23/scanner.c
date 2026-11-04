@@ -156,6 +156,8 @@ static TokenType identifierType() {
       switch (scanner.start[1]) {
       case 'l':
         return checkKeyword(1, 4, "lass", TOKEN_CLASS);
+      case 'a':
+        return checkKeyword(1, 3, "ase", TOKEN_CASE);
       case 'o':
         return checkKeyword(1, 4, "onst", TOKEN_CONST);
       }
@@ -163,6 +165,9 @@ static TokenType identifierType() {
     break;
   case 'e':
     return checkKeyword(1, 3, "lse", TOKEN_ELSE);
+
+  case 'd':
+    return checkKeyword(1, 6, "efault", TOKEN_DEFAULT);
 
   case 'f':
     if (scanner.current - scanner.start > 1) {
@@ -188,7 +193,15 @@ static TokenType identifierType() {
   case 'r':
     return checkKeyword(1, 5, "eturn", TOKEN_RETURN);
   case 's':
-    return checkKeyword(1, 4, "uper", TOKEN_SUPER);
+    if (scanner.current - scanner.start > 1) {
+      switch (scanner.start[1]) {
+      case 'u':
+        return checkKeyword(1, 4, "uper", TOKEN_SUPER);
+      case 'w':
+        return checkKeyword(1, 5, "witch", TOKEN_SWITCH);
+      }
+    }
+    break;
 
   case 't':
     if (scanner.current - scanner.start > 1) {
@@ -286,6 +299,8 @@ scanToken()
     return makeToken(TOKEN_SEMICOLON);
   case ',':
     return makeToken(TOKEN_COMMA);
+  case ':':
+    return makeToken(TOKEN_COLON);
   case '.':
     return makeToken(TOKEN_DOT);
   case '-':
