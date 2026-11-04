@@ -60,12 +60,14 @@ typedef struct {
   Token           name;
   int             depth;
   bool            isCaptured;
+  bool            isConst;
 } Local;
 
 
 typedef struct {
   uint8_t         index;
   bool            isLocal;
+  bool            isConst;
 } Upvalue;
 
 
@@ -103,6 +105,7 @@ Compiler       *current = NULL;
 ClassCompiler  *currentClass = NULL;
 
 Table           stringConstants;
+Table           constGlobals;
 
 
 
@@ -438,7 +441,7 @@ resolveLocal(Compiler * compiler, Token * name)
 
 static int
 addUpvalue(Compiler * compiler, uint8_t index,
-           bool isLocal)
+           bool isLocal, bool isConst)
 {
   int             upvalueCount = compiler->function->upvalueCount;
 
@@ -457,6 +460,7 @@ addUpvalue(Compiler * compiler, uint8_t index,
     return 0;
   }
   compiler->upvalues[upvalueCount].isLocal = isLocal;
+  compiler->upvalues[upvalueCount].isConst = isConst;
   compiler->upvalues[upvalueCount].index = index;
   return compiler->function->upvalueCount++;
 }
@@ -473,18 +477,20 @@ resolveUpvalue(Compiler * compiler, Token * name)
 
     compiler->enclosing->locals[local].isCaptured = true;
 
-    return addUpvalue(compiler, (uint8_t) local, true);
+    return addUpvalue(compiler, (uint8_t) local, true,
+                      compiler->enclosing->locals[local].isConst);
   }
   int             upvalue = resolveUpvalue(compiler->enclosing, name);
   if (upvalue != -1) {
-    return addUpvalue(compiler, (uint8_t) upvalue, false);
+    return addUpvalue(compiler, (uint8_t) upvalue, false,
+                      compiler->enclosing->upvalues[upvalue].isConst);
   }
   return -1;
 }
 
 
 static void
-addLocal(Token name)
+addLocal(Token name, bool isConst)
 {
 
   if (current->localCount == UINT8_COUNT) {
@@ -499,12 +505,13 @@ addLocal(Token name)
 
 
   local->isCaptured = false;
+  local->isConst = isConst;
 
 }
 
 
 static void
-declareVariable()
+declareVariable(bool isConst)
 {
   if (current->scopeDepth == 0)
     return;
@@ -522,15 +529,15 @@ declareVariable()
   }
 
 
-  addLocal(*name);
+  addLocal(*name, isConst);
 }
 
 
-static uint8_t parseVariable(const char *errorMessage){
+static uint8_t parseVariable(const char *errorMessage, bool isConst){
   consume(TOKEN_IDENTIFIER, errorMessage);
 
 
-  declareVariable();
+  declareVariable(isConst);
   if (current->scopeDepth > 0)
     return 0;
 
@@ -774,6 +781,21 @@ namedVariable(Token name, bool canAssign)
 
 
   if (canAssign && match(TOKEN_EQUAL)) {
+
+    bool isConst = false;
+    if (getOp == OP_GET_LOCAL) {
+      isConst = current->locals[arg].isConst;
+    } else if (getOp == OP_GET_UPVALUE) {
+      isConst = current->upvalues[arg].isConst;
+    } else {
+      Value value;
+      isConst = tableGet(&constGlobals,
+                         currentChunk()->constants.values[arg], &value);
+    }
+
+    if (isConst) {
+      error("Cannot reassign a const variable.");
+    }
 
     expression();
 
@@ -1038,7 +1060,7 @@ function(FunctionType type)
       if (current->function->arity > 255) {
         errorAtCurrent("Can't have more than 255 parameters.");
       }
-      uint8_t         constant = parseVariable("Expect parameter name.");
+      uint8_t         constant = parseVariable("Expect parameter name.", false);
       defineVariable(constant);
     } while (match(TOKEN_COMMA));
   }
@@ -1092,7 +1114,7 @@ classDeclaration()
   Token           className = parser.previous;
 
   uint8_t         nameConstant = identifierConstant(&parser.previous);
-  declareVariable();
+  declareVariable(false);
 
   emitBytes(OP_CLASS, nameConstant);
   defineVariable(nameConstant);
@@ -1116,7 +1138,7 @@ classDeclaration()
       error("A class can't inherit from itself.");
     }
     beginScope();
-    addLocal(syntheticToken("super"));
+    addLocal(syntheticToken("super"), false);
     defineVariable(0);
 
 
@@ -1151,7 +1173,7 @@ classDeclaration()
 static void
 funDeclaration()
 {
-  uint8_t global = parseVariable("Expect function name.");
+  uint8_t global = parseVariable("Expect function name.", false);
   markInitialized();
   function(TYPE_FUNCTION);
   defineVariable(global);
@@ -1159,19 +1181,41 @@ funDeclaration()
 
 
 static void
-varDeclaration()
+variableDeclaration(bool isConst)
 {
-  uint8_t global = parseVariable("Expect variable name.");
+  uint8_t global = parseVariable("Expect variable name.", isConst);
 
   if (match(TOKEN_EQUAL)) {
     expression();
+  } else if (isConst) {
+    error("A const variable must have an initializer.");
+    emitByte(OP_NIL);
   } else {
     emitByte(OP_NIL);
   }
   consume(TOKEN_SEMICOLON,
           "Expect ';' after variable declaration.");
 
+  if (isConst && current->scopeDepth == 0) {
+    tableSet(&constGlobals, currentChunk()->constants.values[global],
+             BOOL_VAL(true));
+  }
+
   defineVariable(global);
+}
+
+
+static void
+varDeclaration()
+{
+  variableDeclaration(false);
+}
+
+
+static void
+constDeclaration()
+{
+  variableDeclaration(true);
 }
 
 
@@ -1197,6 +1241,8 @@ forStatement()
 
   } else if (match(TOKEN_VAR)) {
     varDeclaration();
+  } else if (match(TOKEN_CONST)) {
+    constDeclaration();
   } else {
     expressionStatement();
   }
@@ -1334,6 +1380,7 @@ synchronize()
     case TOKEN_CLASS:
     case TOKEN_FUN:
     case TOKEN_VAR:
+    case TOKEN_CONST:
     case TOKEN_FOR:
     case TOKEN_IF:
     case TOKEN_WHILE:
@@ -1366,6 +1413,8 @@ declaration()
 
 
     varDeclaration();
+  } else if (match(TOKEN_CONST)) {
+    constDeclaration();
   } else {
     statement();
   }
@@ -1438,6 +1487,7 @@ compile(const char *source)
   parser.panicMode = false;
 
   initTable(&stringConstants);
+  initTable(&constGlobals);
 
   advance();
 
@@ -1454,6 +1504,7 @@ compile(const char *source)
 
   ObjFunction    *function = endCompiler();
   freeTable(&stringConstants);
+  freeTable(&constGlobals);
   return parser.hadError ? NULL : function;
 
 }
