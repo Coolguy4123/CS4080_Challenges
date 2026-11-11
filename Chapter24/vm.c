@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include <string.h>
+#include <math.h>
 
 
 #include <time.h>
@@ -28,23 +29,53 @@
 VM              vm;
 
 static bool
-clockNative(int argCount, Value * args)
+clockNative(int argCount, Value * args, Value * result)
 {
+  (void) args;
   if (argCount != 0) {
-    args[-1] = OBJ_VAL(copyString("Expected 0 arguments.", 21));
     return false;
   }
-  args[-1] = NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
+  *result = NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
   return true;
 }
 
 
 static bool
-errNative(int argCount, Value * args)
+errNative(int argCount, Value * args, Value * result)
 {
   (void) argCount;
-  args[-1] = OBJ_VAL(copyString("Error!", 6));
+  (void) args;
+  (void) result;
   return false;
+}
+
+
+static bool
+sqrtNative(int argCount, Value * args, Value * result)
+{
+  if (argCount != 1 || !IS_NUMBER(args[0])) {
+    return false;
+  }
+
+  double value = AS_NUMBER(args[0]);
+  if (value < 0) {
+    return false;
+  }
+
+  *result = NUMBER_VAL(sqrt(value));
+  return true;
+}
+
+
+static bool
+powNative(int argCount, Value * args, Value * result)
+{
+  if (argCount != 2 || !IS_NUMBER(args[0]) || !IS_NUMBER(args[1])) {
+    return false;
+  }
+
+  *result = NUMBER_VAL(pow(AS_NUMBER(args[0]), AS_NUMBER(args[1])));
+  return true;
 }
 
 
@@ -143,6 +174,8 @@ initVM()
 
   defineNative("clock", clockNative);
   defineNative("err", errNative);
+  defineNative("sqrt", sqrtNative);
+  defineNative("pow", powNative);
 
 }
 
@@ -255,13 +288,14 @@ callValue(Value callee, int argCount)
 
     case OBJ_NATIVE:{
         NativeFn        native = AS_NATIVE(callee);
-        Value          *args = vm.stackTop - argCount;
-        if (native(argCount, args)) {
-          vm.stackTop -= argCount;
-          return true;
+        Value           result;
+        if (!native(argCount, vm.stackTop - argCount, &result)) {
+          runtimeError("Native function failed.");
+          return false;
         }
-        runtimeError(AS_STRING(vm.stackTop[-argCount - 1])->chars);
-        return false;
+        vm.stackTop -= argCount + 1;
+        push(result);
+        return true;
       }
 
     default:
