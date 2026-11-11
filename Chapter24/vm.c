@@ -388,15 +388,16 @@ concatenate()
 static InterpretResult run() {
 
   CallFrame      *frame = &vm.frames[vm.frameCount - 1];
+  register uint8_t *ip = frame->ip;
 
 
-#define READ_BYTE() (*frame->ip++)
+#define READ_BYTE() (*ip++)
 
 
 
 #define READ_SHORT() \
-    (frame->ip += 2, \
-    (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
+    (ip += 2, \
+    (uint16_t)((ip[-2] << 8) | ip[-1]))
 
 
 
@@ -413,6 +414,7 @@ static InterpretResult run() {
 #define BINARY_OP(valueType, op) \
     do { \
       if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
+        frame->ip = ip; \
         runtimeError("Operands must be numbers."); \
         return INTERPRET_RUNTIME_ERROR; \
       } \
@@ -438,7 +440,7 @@ static InterpretResult run() {
 
 
     disassembleInstruction(&frame->closure->function->chunk,
-                           (int)(frame->ip - frame->closure->function->chunk.code));
+                           (int)(ip - frame->closure->function->chunk.code));
 
 #endif
 
@@ -521,6 +523,7 @@ static InterpretResult run() {
         ObjString      *name = READ_STRING();
         Value           value;
         if (!tableGet(&vm.globals, OBJ_VAL(name), &value)) {
+          frame->ip = ip;
           runtimeError("Undefined variable '%s'.", name->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -541,6 +544,7 @@ static InterpretResult run() {
         ObjString      *name = READ_STRING();
         if (tableSet(&vm.globals, OBJ_VAL(name), peek(0))) {
           tableDelete(&vm.globals, OBJ_VAL(name));
+          frame->ip = ip;
           runtimeError("Undefined variable '%s'.", name->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -565,6 +569,7 @@ static InterpretResult run() {
     case OP_GET_PROPERTY:{
 
         if (!IS_INSTANCE(peek(0))) {
+          frame->ip = ip;
           runtimeError("Only instances have properties.");
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -577,6 +582,7 @@ static InterpretResult run() {
           push(value);
           break;
         }
+        frame->ip = ip;
         if (!bindMethod(instance->klass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -588,6 +594,7 @@ static InterpretResult run() {
     case OP_SET_PROPERTY:{
 
         if (!IS_INSTANCE(peek(1))) {
+          frame->ip = ip;
           runtimeError("Only instances have fields.");
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -604,6 +611,7 @@ static InterpretResult run() {
         ObjString      *name = READ_STRING();
         ObjClass       *superclass = AS_CLASS(pop());
 
+        frame->ip = ip;
         if (!bindMethod(superclass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -638,6 +646,7 @@ static InterpretResult run() {
           double          a = AS_NUMBER(pop());
           push(NUMBER_VAL(a + b));
         } else {
+          frame->ip = ip;
           runtimeError(
                        "Operands must be two numbers or two strings.");
           return INTERPRET_RUNTIME_ERROR;
@@ -664,6 +673,7 @@ static InterpretResult run() {
 
     case OP_NEGATE:
       if (!IS_NUMBER(peek(0))) {
+        frame->ip = ip;
         runtimeError("Operand must be a number.");
         return INTERPRET_RUNTIME_ERROR;
       }
@@ -682,7 +692,7 @@ static InterpretResult run() {
         uint16_t        offset = READ_SHORT();
 
 
-        frame->ip += offset;
+        ip += offset;
 
         break;
       }
@@ -693,7 +703,7 @@ static InterpretResult run() {
 
 
         if (isFalsey(peek(0)))
-          frame->ip += offset;
+          ip += offset;
 
         break;
       }
@@ -703,7 +713,7 @@ static InterpretResult run() {
         uint16_t        offset = READ_SHORT();
 
 
-        frame->ip -= offset;
+        ip -= offset;
 
         break;
       }
@@ -711,10 +721,12 @@ static InterpretResult run() {
 
     case OP_CALL:{
         int             argCount = READ_BYTE();
+        frame->ip = ip;
         if (!callValue(peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         frame = &vm.frames[vm.frameCount - 1];
+        ip = frame->ip;
 
         break;
       }
@@ -723,10 +735,12 @@ static InterpretResult run() {
     case OP_INVOKE:{
         ObjString      *method = READ_STRING();
         int             argCount = READ_BYTE();
+        frame->ip = ip;
         if (!invoke(method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         frame = &vm.frames[vm.frameCount - 1];
+        ip = frame->ip;
         break;
       }
 
@@ -735,10 +749,12 @@ static InterpretResult run() {
         ObjString      *method = READ_STRING();
         int             argCount = READ_BYTE();
         ObjClass       *superclass = AS_CLASS(pop());
+        frame->ip = ip;
         if (!invokeFromClass(superclass, method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         frame = &vm.frames[vm.frameCount - 1];
+        ip = frame->ip;
         break;
       }
 
@@ -785,6 +801,7 @@ static InterpretResult run() {
         vm.stackTop = frame->slots;
         push(result);
         frame = &vm.frames[vm.frameCount - 1];
+        ip = frame->ip;
         break;
 
       }
@@ -798,6 +815,7 @@ static InterpretResult run() {
         Value           superclass = peek(1);
 
         if (!IS_CLASS(superclass)) {
+          frame->ip = ip;
           runtimeError("Superclass must be a class.");
           return INTERPRET_RUNTIME_ERROR;
         }
