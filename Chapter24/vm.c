@@ -27,8 +27,21 @@
 
 VM              vm;
 
-static Value clockNative(int argCount, Value * args){
-  return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+static bool
+clockNative(int argCount, Value * args)
+{
+  (void) argCount;
+  args[-1] = NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
+  return true;
+}
+
+
+static bool
+errNative(int argCount, Value * args)
+{
+  (void) argCount;
+  args[-1] = OBJ_VAL(copyString("Error!", 6));
+  return false;
 }
 
 
@@ -126,6 +139,7 @@ initVM()
 
 
   defineNative("clock", clockNative);
+  defineNative("err", errNative);
 
 }
 
@@ -238,10 +252,13 @@ callValue(Value callee, int argCount)
 
     case OBJ_NATIVE:{
         NativeFn        native = AS_NATIVE(callee);
-        Value           result = native(argCount, vm.stackTop - argCount);
-        vm.stackTop -= argCount + 1;
-        push(result);
-        return true;
+        Value          *args = vm.stackTop - argCount;
+        if (native(argCount, args)) {
+          vm.stackTop -= argCount;
+          return true;
+        }
+        runtimeError(AS_STRING(vm.stackTop[-argCount - 1])->chars);
+        return false;
       }
 
     default:
