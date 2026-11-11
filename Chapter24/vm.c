@@ -30,7 +30,10 @@ VM              vm;
 static bool
 clockNative(int argCount, Value * args)
 {
-  (void) argCount;
+  if (argCount != 0) {
+    args[-1] = OBJ_VAL(copyString("Expected 0 arguments.", 21));
+    return false;
+  }
   args[-1] = NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
   return true;
 }
