@@ -113,7 +113,7 @@ benchmarkLookups(int count)
 {
   Table           table;
   Value           value;
-  volatile int    checksum = 0;
+  volatile long long checksum = 0;
   clock_t         start;
 
   initTable(&table);
@@ -124,7 +124,7 @@ benchmarkLookups(int count)
   start = clock();
   for (int i = 0; i < count; i++) {
     if (tableGet(&table, NUMBER_VAL(i), &value)) {
-      checksum += (int)AS_NUMBER(value);
+      checksum += (long long)AS_NUMBER(value);
     }
   }
   clock_t         end = clock();
@@ -140,7 +140,7 @@ benchmarkCollisionLookups(int count)
   Table           table;
   Value          *keys = malloc(sizeof(Value) * 32);
   Value           value;
-  volatile int    checksum = 0;
+  volatile long long checksum = 0;
   int             found = 0;
   int             candidate = count;
   clock_t         start;
@@ -167,7 +167,7 @@ benchmarkCollisionLookups(int count)
   start = clock();
   for (int i = 0; i < count; i++) {
     if (tableGet(&table, keys[i % 32], &value)) {
-      checksum += (int)AS_NUMBER(value);
+      checksum += (long long)AS_NUMBER(value);
     }
   }
   clock_t         end = clock();

@@ -419,14 +419,15 @@ static void     parsePrecedence(Precedence precedence);
 
 static uint8_t identifierConstant(Token * name) {
   ObjString      *string = copyString(name->start, name->length);
-  Value           indexValue;
+  Value           existing;
 
-  if (tableGet(&stringConstants, OBJ_VAL(string), &indexValue)) {
-    return (uint8_t) AS_NUMBER(indexValue);
+  if (tableGet(&stringConstants, OBJ_VAL(string), &existing)) {
+    string = AS_STRING(existing);
+  } else {
+    tableSet(&stringConstants, OBJ_VAL(string), OBJ_VAL(string));
   }
-  uint8_t         index = makeConstant(OBJ_VAL(string));
-  tableSet(&stringConstants, OBJ_VAL(string), NUMBER_VAL((double)index));
-  return index;
+
+  return makeConstant(OBJ_VAL(string));
 }
 
 
@@ -1641,6 +1642,9 @@ compile(const char *source)
 void
 markCompilerRoots()
 {
+  markTable(&stringConstants);
+  markTable(&constGlobals);
+
   Compiler       *compiler = current;
   while (compiler != NULL) {
     markObject((Obj *) compiler->function);
