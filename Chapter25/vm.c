@@ -28,6 +28,15 @@
 
 VM              vm;
 
+static inline ObjFunction *
+getFrameFunction(CallFrame * frame)
+{
+  if (frame->function->type == OBJ_FUNCTION) {
+    return (ObjFunction *) frame->function;
+  }
+  return ((ObjClosure *) frame->function)->function;
+}
+
 static bool
 clockNative(int argCount, Value * args, Value * result)
 {
@@ -109,7 +118,7 @@ runtimeError(const char *format,...)
     CallFrame      *frame = &vm.frames[i];
 
 
-    ObjFunction    *function = frame->closure->function;
+    ObjFunction    *function = getFrameFunction(frame);
 
     size_t          instruction = frame->ip - function->chunk.code - 1;
     fprintf(stderr, "[line %d] in ",
@@ -220,14 +229,12 @@ static Value peek(int distance){
 
 
 static bool
-call(ObjClosure * closure, int argCount)
+call(Obj * callee, ObjFunction * function, int argCount)
 {
 
-
-
-  if (argCount != closure->function->arity) {
+  if (argCount != function->arity) {
     runtimeError("Expected %d arguments but got %d.",
-                 closure->function->arity, argCount);
+                 function->arity, argCount);
 
 
     return false;
@@ -239,11 +246,25 @@ call(ObjClosure * closure, int argCount)
   CallFrame      *frame = &vm.frames[vm.frameCount++];
 
 
-  frame->closure = closure;
-  frame->ip = closure->function->chunk.code;
+  frame->function = callee;
+  frame->ip = function->chunk.code;
 
   frame->slots = vm.stackTop - argCount - 1;
   return true;
+}
+
+
+static bool
+callClosure(ObjClosure * closure, int argCount)
+{
+  return call((Obj *) closure, closure->function, argCount);
+}
+
+
+static bool
+callFunction(ObjFunction * function, int argCount)
+{
+  return call((Obj *) function, function, argCount);
 }
 
 
@@ -258,7 +279,7 @@ callValue(Value callee, int argCount)
 
         vm.stackTop[-argCount - 1] = bound->receiver;
 
-        return call(bound->method, argCount);
+        return callValue(OBJ_VAL(bound->method), argCount);
       }
 
 
@@ -269,7 +290,7 @@ callValue(Value callee, int argCount)
         Value           initializer;
         if (tableGet(&klass->methods, OBJ_VAL(vm.initString),
                      &initializer)) {
-          return call(AS_CLOSURE(initializer), argCount);
+          return callValue(initializer, argCount);
 
         } else if (argCount != 0) {
           runtimeError("Expected 0 arguments but got %d.",
@@ -282,7 +303,10 @@ callValue(Value callee, int argCount)
 
 
     case OBJ_CLOSURE:
-      return call(AS_CLOSURE(callee), argCount);
+      return callClosure(AS_CLOSURE(callee), argCount);
+
+    case OBJ_FUNCTION:
+      return callFunction(AS_FUNCTION(callee), argCount);
 
 
 
@@ -316,7 +340,7 @@ invokeFromClass(ObjClass * klass, ObjString * name,
     runtimeError("Undefined property '%s'.", name->chars);
     return false;
   }
-  return call(AS_CLOSURE(method), argCount);
+  return callValue(method, argCount);
 }
 
 
@@ -350,8 +374,7 @@ bindMethod(ObjClass * klass, ObjString * name)
     runtimeError("Undefined property '%s'.", name->chars);
     return false;
   }
-  ObjBoundMethod *bound = newBoundMethod(peek(0),
-                                         AS_CLOSURE(method));
+  ObjBoundMethod *bound = newBoundMethod(peek(0), AS_OBJ(method));
   pop();
   push(OBJ_VAL(bound));
   return true;
@@ -456,7 +479,7 @@ static InterpretResult run() {
 
 
 #define READ_CONSTANT() \
-    (frame->closure->function->chunk.constants.values[READ_BYTE()])
+    (getFrameFunction(frame)->chunk.constants.values[READ_BYTE()])
 
 
 
@@ -493,8 +516,8 @@ static InterpretResult run() {
 
 
 
-    disassembleInstruction(&frame->closure->function->chunk,
-                           (int)(ip - frame->closure->function->chunk.code));
+    disassembleInstruction(&getFrameFunction(frame)->chunk,
+                           (int)(ip - getFrameFunction(frame)->chunk.code));
 
 #endif
 
@@ -608,14 +631,16 @@ static InterpretResult run() {
 
     case OP_GET_UPVALUE:{
         uint8_t         slot = READ_BYTE();
-        push(*frame->closure->upvalues[slot]->location);
+        ObjClosure     *closure = (ObjClosure *) frame->function;
+        push(*closure->upvalues[slot]->location);
         break;
       }
 
 
     case OP_SET_UPVALUE:{
         uint8_t         slot = READ_BYTE();
-        *frame->closure->upvalues[slot]->location = peek(0);
+        ObjClosure     *closure = (ObjClosure *) frame->function;
+        *closure->upvalues[slot]->location = peek(0);
         break;
       }
 
@@ -825,7 +850,8 @@ static InterpretResult run() {
             closure->upvalues[i] =
               captureUpvalue(frame->slots + index);
           } else {
-            closure->upvalues[i] = frame->closure->upvalues[index];
+            closure->upvalues[i] =
+              ((ObjClosure *) frame->function)->upvalues[index];
           }
         }
 
@@ -932,10 +958,7 @@ interpret(const char *source)
 
 
 
-  ObjClosure     *closure = newClosure(function);
-  pop();
-  push(OBJ_VAL(closure));
-  call(closure, 0);
+  callFunction(function, 0);
 
 
 

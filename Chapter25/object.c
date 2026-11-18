@@ -48,7 +48,7 @@ static Obj * allocateObject(size_t size, ObjType type) {
 
 ObjBoundMethod *
 newBoundMethod(Value receiver,
-               ObjClosure * method)
+               Obj * method)
 {
   ObjBoundMethod *bound = ALLOCATE_OBJ(ObjBoundMethod,
                                        OBJ_BOUND_METHOD);
@@ -182,7 +182,11 @@ printObject(Value value)
   switch (OBJ_TYPE(value)) {
 
   case OBJ_BOUND_METHOD:
-    printFunction(AS_BOUND_METHOD(value)->method->function);
+    if (AS_BOUND_METHOD(value)->method->type == OBJ_FUNCTION) {
+      printFunction((ObjFunction *) AS_BOUND_METHOD(value)->method);
+    } else {
+      printFunction(((ObjClosure *) AS_BOUND_METHOD(value)->method)->function);
+    }
     break;
 
 

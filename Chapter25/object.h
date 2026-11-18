@@ -174,14 +174,14 @@ typedef struct {
 typedef struct {
   Obj             obj;
   Value           receiver;
-  ObjClosure     *method;
+  Obj            *method;
 } ObjBoundMethod;
 
 
 
 ObjBoundMethod *
 newBoundMethod(Value receiver,
-               ObjClosure * method);
+              Obj * method);
 
 
 ObjClass *      newClass(ObjString * name);

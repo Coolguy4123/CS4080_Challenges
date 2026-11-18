@@ -25,7 +25,7 @@
 typedef struct {
 
 
-  ObjClosure     *closure;
+  Obj            *function;
 
   uint8_t        *ip;
   Value          *slots;
