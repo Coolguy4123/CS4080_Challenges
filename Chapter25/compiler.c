@@ -1262,15 +1262,25 @@ forStatement()
 
   beginScope();
 
+  int             loopVariable = -1;
+  Token           loopVariableName;
+  bool            loopVariableConst = false;
+  loopVariableName.start = NULL;
+
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
 
 
   if (match(TOKEN_SEMICOLON)) {
 
   } else if (match(TOKEN_VAR)) {
+    loopVariableName = parser.current;
     varDeclaration();
+    loopVariable = current->localCount - 1;
   } else if (match(TOKEN_CONST)) {
+    loopVariableName = parser.current;
+    loopVariableConst = true;
     constDeclaration();
+    loopVariable = current->localCount - 1;
   } else {
     expressionStatement();
   }
@@ -1302,7 +1312,25 @@ forStatement()
     innermostLoopStart = incrementStart;
     patchJump(bodyJump);
   }
+
+  int             innerVariable = -1;
+  if (loopVariable != -1) {
+    beginScope();
+    emitLocalInstruction(OP_GET_LOCAL, OP_GET_LOCAL_LONG, loopVariable);
+    addLocal(loopVariableName, loopVariableConst);
+    markInitialized();
+    innerVariable = current->localCount - 1;
+  }
+
   statement();
+
+  if (loopVariable != -1) {
+    emitLocalInstruction(OP_GET_LOCAL, OP_GET_LOCAL_LONG, innerVariable);
+    emitLocalInstruction(OP_SET_LOCAL, OP_SET_LOCAL_LONG, loopVariable);
+    emitByte(OP_POP);
+    endScope();
+  }
+
   emitLoop(innermostLoopStart);
 
 
