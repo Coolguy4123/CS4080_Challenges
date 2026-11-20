@@ -28,6 +28,8 @@ static Obj * allocateObject(size_t size, ObjType type) {
   Obj            *object = (Obj *) reallocate(NULL, 0, size);
   object->type = type;
 
+  object->refCount = 0;
+
   object->isMarked = false;
 
 
@@ -53,7 +55,9 @@ newBoundMethod(Value receiver,
   ObjBoundMethod *bound = ALLOCATE_OBJ(ObjBoundMethod,
                                        OBJ_BOUND_METHOD);
   bound->receiver = receiver;
+  retainValue(receiver);
   bound->method = method;
+  retainObject(method);
   return bound;
 }
 
@@ -63,6 +67,7 @@ newClass(ObjString * name)
 {
   ObjClass       *klass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
   klass->name = name;
+  retainObject((Obj *) name);
 
   initTable(&klass->methods);
 
@@ -83,6 +88,7 @@ newClosure(ObjFunction * function)
 
   ObjClosure     *closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
   closure->function = function;
+  retainObject((Obj *) function);
 
   closure->upvalues = upvalues;
   closure->upvalueCount = function->upvalueCount;
@@ -110,6 +116,7 @@ newInstance(ObjClass * klass)
 {
   ObjInstance    *instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
   instance->klass = klass;
+  retainObject((Obj *) klass);
   initTable(&instance->fields);
   return instance;
 }

@@ -28,6 +28,22 @@
 
 VM              vm;
 
+static void
+replaceValue(Value * slot, Value value)
+{
+  releaseValue(*slot);
+  *slot = value;
+  retainValue(value);
+}
+
+
+static void
+discardStackTo(Value * top)
+{
+  while (vm.stackTop != NULL && vm.stackTop > top)
+    releaseValue(pop());
+}
+
 static inline ObjFunction *
 getFrameFunction(CallFrame * frame)
 {
@@ -141,8 +157,8 @@ defineNative(const char *name, NativeFn function)
   push(OBJ_VAL(copyString(name, (int)strlen(name))));
   push(OBJ_VAL(newNative(function)));
   tableSet(&vm.globals, vm.stack[0], vm.stack[1]);
-  pop();
-  pop();
+  releaseValue(pop());
+  releaseValue(pop());
 }
 
 
@@ -178,6 +194,7 @@ initVM()
   vm.initString = NULL;
 
   vm.initString = copyString("init", 4);
+  retainObject((Obj *) vm.initString);
 
 
 
@@ -198,6 +215,7 @@ freeVM()
   freeTable(&vm.strings);
 
 
+  releaseObject((Obj *) vm.initString);
   vm.initString = NULL;
 
 
@@ -207,6 +225,15 @@ freeVM()
 
 void
 push(Value value)
+{
+  retainValue(value);
+  *vm.stackTop = value;
+  vm.stackTop++;
+}
+
+
+static void
+pushOwned(Value value)
 {
   *vm.stackTop = value;
   vm.stackTop++;
@@ -277,7 +304,7 @@ callValue(Value callee, int argCount)
     case OBJ_BOUND_METHOD:{
         ObjBoundMethod *bound = AS_BOUND_METHOD(callee);
 
-        vm.stackTop[-argCount - 1] = bound->receiver;
+        replaceValue(&vm.stackTop[-argCount - 1], bound->receiver);
 
         return callValue(OBJ_VAL(bound->method), argCount);
       }
@@ -285,7 +312,8 @@ callValue(Value callee, int argCount)
 
     case OBJ_CLASS:{
         ObjClass       *klass = AS_CLASS(callee);
-        vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
+        replaceValue(&vm.stackTop[-argCount - 1],
+                     OBJ_VAL(newInstance(klass)));
 
         Value           initializer;
         if (tableGet(&klass->methods, OBJ_VAL(vm.initString),
@@ -359,7 +387,7 @@ invoke(ObjString * name, int argCount)
 
   Value           value;
   if (tableGet(&instance->fields, OBJ_VAL(name), &value)) {
-    vm.stackTop[-argCount - 1] = value;
+    replaceValue(&vm.stackTop[-argCount - 1], value);
     return callValue(value, argCount);
   }
   return invokeFromClass(instance->klass, name, argCount);
@@ -375,7 +403,7 @@ bindMethod(ObjClass * klass, ObjString * name)
     return false;
   }
   ObjBoundMethod *bound = newBoundMethod(peek(0), AS_OBJ(method));
-  pop();
+  releaseValue(pop());
   push(OBJ_VAL(bound));
   return true;
 }
@@ -415,6 +443,7 @@ closeUpvalues(Value * last)
          vm.openUpvalues->location >= last) {
     ObjUpvalue     *upvalue = vm.openUpvalues;
     upvalue->closed = *upvalue->location;
+    retainValue(upvalue->closed);
     upvalue->location = &upvalue->closed;
     vm.openUpvalues = upvalue->next;
   }
@@ -427,7 +456,7 @@ defineMethod(ObjString * name)
   Value           method = peek(0);
   ObjClass       *klass = AS_CLASS(peek(1));
   tableSet(&klass->methods, OBJ_VAL(name), method);
-  pop();
+  releaseValue(pop());
 }
 
 
@@ -455,8 +484,8 @@ concatenate()
 
   ObjString      *result = makeString(true, chars, length);
 
-  pop();
-  pop();
+  releaseValue(pop());
+  releaseValue(pop());
 
   push(OBJ_VAL(result));
 }
@@ -547,7 +576,7 @@ static InterpretResult run() {
 
 
     case OP_POP:
-      pop();
+      releaseValue(pop());
       break;
 
 
@@ -580,7 +609,7 @@ static InterpretResult run() {
         uint8_t         slot = READ_BYTE();
 
 
-        frame->slots[slot] = peek(0);
+        replaceValue(&frame->slots[slot], peek(0));
 
         break;
       }
@@ -590,7 +619,7 @@ static InterpretResult run() {
         uint16_t        slot = READ_SHORT();
 
 
-        frame->slots[slot] = peek(0);
+        replaceValue(&frame->slots[slot], peek(0));
 
         break;
       }
@@ -612,7 +641,7 @@ static InterpretResult run() {
     case OP_DEFINE_GLOBAL:{
         ObjString      *name = READ_STRING();
         tableSet(&vm.globals, OBJ_VAL(name), peek(0));
-        pop();
+        releaseValue(pop());
         break;
       }
 
@@ -640,7 +669,7 @@ static InterpretResult run() {
     case OP_SET_UPVALUE:{
         uint8_t         slot = READ_BYTE();
         ObjClosure     *closure = (ObjClosure *) frame->function;
-        *closure->upvalues[slot]->location = peek(0);
+        replaceValue(closure->upvalues[slot]->location, peek(0));
         break;
       }
 
@@ -657,8 +686,9 @@ static InterpretResult run() {
 
         Value           value;
         if (tableGet(&instance->fields, OBJ_VAL(name), &value)) {
-          pop();
+          Value           receiver = pop();
           push(value);
+          releaseValue(receiver);
           break;
         }
         frame->ip = ip;
@@ -680,20 +710,24 @@ static InterpretResult run() {
         ObjInstance    *instance = AS_INSTANCE(peek(1));
         tableSet(&instance->fields, OBJ_VAL(READ_STRING()), peek(0));
         Value           value = pop();
-        pop();
-        push(value);
+        Value           receiver = pop();
+        releaseValue(receiver);
+        pushOwned(value);
         break;
       }
 
 
     case OP_GET_SUPER:{
         ObjString      *name = READ_STRING();
-        ObjClass       *superclass = AS_CLASS(pop());
+        Value           superclassValue = pop();
+        ObjClass       *superclass = AS_CLASS(superclassValue);
 
         frame->ip = ip;
         if (!bindMethod(superclass, name)) {
+          releaseValue(superclassValue);
           return INTERPRET_RUNTIME_ERROR;
         }
+        releaseValue(superclassValue);
         break;
       }
 
@@ -702,6 +736,8 @@ static InterpretResult run() {
         Value           b = pop();
         Value           a = pop();
         push(BOOL_VAL(valuesEqual(a, b)));
+        releaseValue(b);
+        releaseValue(a);
         break;
       }
 
@@ -721,9 +757,13 @@ static InterpretResult run() {
         if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
           concatenate();
         } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
-          double          b = AS_NUMBER(pop());
-          double          a = AS_NUMBER(pop());
+          Value           bValue = pop();
+          Value           aValue = pop();
+          double          b = AS_NUMBER(bValue);
+          double          a = AS_NUMBER(aValue);
           push(NUMBER_VAL(a + b));
+          releaseValue(bValue);
+          releaseValue(aValue);
         } else {
           frame->ip = ip;
           runtimeError(
@@ -746,7 +786,11 @@ static InterpretResult run() {
 
 
     case OP_NOT:
-      push(BOOL_VAL(isFalsey(pop())));
+      {
+        Value           value = pop();
+        push(BOOL_VAL(isFalsey(value)));
+        releaseValue(value);
+      }
       break;
 
 
@@ -756,12 +800,18 @@ static InterpretResult run() {
         runtimeError("Operand must be a number.");
         return INTERPRET_RUNTIME_ERROR;
       }
-      push(NUMBER_VAL(-AS_NUMBER(pop())));
+      {
+        Value           value = pop();
+        push(NUMBER_VAL(-AS_NUMBER(value)));
+        releaseValue(value);
+      }
       break;
 
 
     case OP_PRINT:{
-        printValue(pop());
+        Value           value = pop();
+        printValue(value);
+        releaseValue(value);
         printf("\n");
         break;
       }
@@ -827,11 +877,14 @@ static InterpretResult run() {
     case OP_SUPER_INVOKE:{
         ObjString      *method = READ_STRING();
         int             argCount = READ_BYTE();
-        ObjClass       *superclass = AS_CLASS(pop());
+        Value           superclassValue = pop();
+        ObjClass       *superclass = AS_CLASS(superclassValue);
         frame->ip = ip;
         if (!invokeFromClass(superclass, method, argCount)) {
+          releaseValue(superclassValue);
           return INTERPRET_RUNTIME_ERROR;
         }
+        releaseValue(superclassValue);
         frame = &vm.frames[vm.frameCount - 1];
         ip = frame->ip;
         break;
@@ -853,6 +906,7 @@ static InterpretResult run() {
             closure->upvalues[i] =
               ((ObjClosure *) frame->function)->upvalues[index];
           }
+          retainObject((Obj *) closure->upvalues[i]);
         }
 
         break;
@@ -861,7 +915,7 @@ static InterpretResult run() {
 
     case OP_CLOSE_UPVALUE:
       closeUpvalues(vm.stackTop - 1);
-      pop();
+      releaseValue(pop());
       break;
 
     case OP_RETURN:{
@@ -902,7 +956,7 @@ static InterpretResult run() {
         ObjClass       *subclass = AS_CLASS(peek(0));
         tableAddAll(&AS_CLASS(superclass)->methods,
                     &subclass->methods);
-        pop();
+        releaseValue(pop());
         break;
       }
 

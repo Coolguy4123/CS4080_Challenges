@@ -69,7 +69,7 @@ addConstant(Chunk * chunk, Value value)
 
   writeValueArray(&chunk->constants, value);
 
-  pop();
+  releaseValue(pop());
 
   return chunk->constants.count - 1;
 }

@@ -91,6 +91,8 @@ typedef enum {
 struct Obj {
   ObjType         type;
 
+  int             refCount;
+
   bool            isMarked;
 
 

@@ -28,6 +28,7 @@ writeValueArray(ValueArray * array, Value value)
                                oldCapacity, array->capacity);
   }
   array->values[array->count] = value;
+  retainValue(value);
   array->count++;
 }
 
@@ -35,6 +36,9 @@ writeValueArray(ValueArray * array, Value value)
 void
 freeValueArray(ValueArray * array)
 {
+  for (int i = 0; i < array->count; i++) {
+    releaseValue(array->values[i]);
+  }
   FREE_ARRAY(Value, array->values, array->capacity);
   initValueArray(array);
 }

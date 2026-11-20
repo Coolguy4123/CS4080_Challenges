@@ -324,6 +324,7 @@ initCompiler(Compiler * compiler, FunctionType type)
   if (type != TYPE_SCRIPT) {
     current->function->name = copyString(parser.previous.start,
                                          parser.previous.length);
+    retainObject((Obj *) current->function->name);
   }
   Local          *local = &current->locals[current->localCount++];
   local->depth = 0;

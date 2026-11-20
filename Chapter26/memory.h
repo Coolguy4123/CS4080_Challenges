@@ -32,6 +32,18 @@
 void *          reallocate(void *pointer, size_t oldSize, size_t newSize);
 
 
+void            retainObject(Obj * object);
+
+
+void            releaseObject(Obj * object);
+
+
+void            retainValue(Value value);
+
+
+void            releaseValue(Value value);
+
+
 void            markObject(Obj * object);
 
 

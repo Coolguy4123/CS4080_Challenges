@@ -21,6 +21,13 @@ initTable(Table * table)
 void
 freeTable(Table * table)
 {
+  for (int i = 0; i < table->capacity; i++) {
+    Entry          *entry = &table->entries[i];
+    if (!IS_EMPTY(entry->key)) {
+      releaseValue(entry->key);
+      releaseValue(entry->value);
+    }
+  }
   FREE_ARRAY(Entry, table->entries, table->capacity);
   initTable(table);
 }
@@ -126,9 +133,16 @@ tableSet(Table * table, Value key, Value value)
   if (isNewKey && IS_NIL(entry->value))
     table->count++;
 
+  if (!isNewKey) {
+    releaseValue(entry->key);
+    releaseValue(entry->value);
+  }
+
 
   entry->key = key;
   entry->value = value;
+  retainValue(key);
+  retainValue(value);
   return isNewKey;
 }
 
@@ -144,6 +158,9 @@ tableDelete(Table * table, Value key)
   if (IS_EMPTY(entry->key))
     return false;
 
+
+  releaseValue(entry->key);
+  releaseValue(entry->value);
 
   entry->key = EMPTY_VAL;
   entry->value = BOOL_VAL(true);

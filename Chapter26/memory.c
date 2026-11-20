@@ -19,6 +19,8 @@
 
 #define GC_HEAP_GROW_FACTOR 2
 
+static void freeObject(Obj * object);
+
 
 void *
 reallocate(void *pointer, size_t oldSize, size_t newSize)
@@ -31,7 +33,6 @@ reallocate(void *pointer, size_t oldSize, size_t newSize)
 #ifdef DEBUG_STRESS_GC
     collectGarbage();
 #endif
-
 
     if (vm.bytesAllocated > vm.nextGC) {
       collectGarbage();
@@ -47,6 +48,37 @@ reallocate(void *pointer, size_t oldSize, size_t newSize)
     exit(1);
 
   return result;
+}
+
+void
+retainObject(Obj * object)
+{
+  if (object != NULL)
+    object->refCount++;
+}
+
+
+void
+releaseObject(Obj * object)
+{
+  if (object != NULL && object->refCount > 0)
+    object->refCount--;
+}
+
+
+void
+retainValue(Value value)
+{
+  if (IS_OBJ(value))
+    retainObject(AS_OBJ(value));
+}
+
+
+void
+releaseValue(Value value)
+{
+  if (IS_OBJ(value))
+    releaseObject(AS_OBJ(value));
 }
 
 void
@@ -182,6 +214,8 @@ freeObject(Obj * object)
   switch (object->type) {
 
   case OBJ_BOUND_METHOD:
+    releaseValue(((ObjBoundMethod *) object)->receiver);
+    releaseObject(((ObjBoundMethod *) object)->method);
     FREE(ObjBoundMethod, object);
     break;
 
@@ -189,6 +223,7 @@ freeObject(Obj * object)
   case OBJ_CLASS:{
 
       ObjClass       *klass = (ObjClass *) object;
+      releaseObject((Obj *) klass->name);
       freeTable(&klass->methods);
 
       FREE(ObjClass, object);
@@ -199,6 +234,10 @@ freeObject(Obj * object)
   case OBJ_CLOSURE:{
 
       ObjClosure     *closure = (ObjClosure *) object;
+      releaseObject((Obj *) closure->function);
+      for (int i = 0; i < closure->upvalueCount; i++) {
+        releaseObject((Obj *) closure->upvalues[i]);
+      }
       FREE_ARRAY(ObjUpvalue *, closure->upvalues,
                  closure->upvalueCount);
 
@@ -209,6 +248,7 @@ freeObject(Obj * object)
 
   case OBJ_FUNCTION:{
       ObjFunction    *function = (ObjFunction *) object;
+      releaseObject((Obj *) function->name);
       freeChunk(&function->chunk);
       FREE(ObjFunction, object);
       break;
@@ -217,6 +257,7 @@ freeObject(Obj * object)
 
   case OBJ_INSTANCE:{
       ObjInstance    *instance = (ObjInstance *) object;
+      releaseObject((Obj *) instance->klass);
       freeTable(&instance->fields);
       FREE(ObjInstance, object);
       break;
@@ -238,6 +279,7 @@ freeObject(Obj * object)
     }
 
   case OBJ_UPVALUE:
+    releaseValue(((ObjUpvalue *) object)->closed);
     FREE(ObjUpvalue, object);
     break;
 
